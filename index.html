@@ -1,52 +1,78 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>School and Applicants Data</title>
+    <title>Multi-Step Form</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .hidden { display: none; }
+    </style>
 </head>
-<body>
-    <h1>School and Applicants Data Submission</h1>
-    <form id="dataForm">
-        <label for="schoolName">اسم المدرسة</label><br>
-        <input type="text" id="schoolName" name="schoolName"><br>
-        <label for="sector">القطاع</label><br>
-        <input type="text" id="sector" name="sector"><br>
-        <label for="directorName">اسم المدير</label><br>
-        <input type="text" id="directorName" name="directorName"><br>
-        <label for="phoneNumber">رقم الهاتف</label><br>
-        <input type="text" id="phoneNumber" name="phoneNumber"><br>
-        <label for="schoolType">نوع المدرسة</label><br>
-        <input type="text" id="schoolType" name="schoolType"><br>
-        <label for="fullName">الاسم الثلاثي</label><br>
-        <input type="text" id="fullName" name="fullName"><br>
-        <label for="university">الجامعة</label><br>
-        <input type="text" id="university" name="university"><br>
-        <label for="college">الكلية</label><br>
-        <input type="text" id="college" name="college"><br>
-        <label for="scientificDepartment">القسم العلمي</label><br>
-        <input type="text" id="scientificDepartment" name="scientificDepartment"><br>
-        <label for="workType">نوع الدوام</label><br>
-        <input type="text" id="workType" name="workType"><br>
-        <label for="startDate">تاريخ المباشرة</label><br>
-        <input type="date" id="startDate" name="startDate"><br>
-        <label for="endDate">تاريخ الانفكاك</label><br>
-        <input type="date" id="endDate" name="endDate"><br>
-        <label for="applicationType">نوع التطبيق</label><br>
-        <input type="text" id="applicationType" name="applicationType"><br>
-        <label for="submissionDate">تاريخ التعبئة</label><br>
-        <input type="date" id="submissionDate" name="submissionDate"><br><br>
-        <input type="submit" value="Submit">
-    </form>
-
+<body class="bg-gray-100">
+    <div class="container mx-auto p-6">
+        <h1 class="text-2xl font-bold mb-6">تسجيل دخول الإدارة</h1>
+        <form id="multiStepForm" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+            <div id="step1" class="step">
+                <h2 class="text-xl font-semibold mb-4">الخطوة 1: المعلومات الأساسية</h2>
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="name">الاسم:</label>
+                <input id="name" type="text" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline mb-4" />
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="email">البريد الإلكتروني:</label>
+                <input id="email" type="email" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
+            </div>
+            <div id="step2" class="step hidden">
+                <h2 class="text-xl font-semibold mb-4">الخطوة 2: المزيد من المعلومات</h2>
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="address">العنوان:</label>
+                <input id="address" type="text" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline mb-4" />
+            </div>
+            <div id="step3" class="step hidden">
+                <h2 class="text-xl font-semibold mb-4">الخطوة 3: تحميل الملفات</h2>
+                <input type="file" required accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline mb-4" />
+            </div>
+            <div id="step4" class="step hidden">
+                <h2 class="text-xl font-semibold mb-4">الخطوة 4: مراجعة المعلومات</h2>
+                <div id="reviewContent"></div>
+            </div>
+            <div class="flex justify-between mt-4">
+                <button type="button" id="prevBtn" class="bg-gray-300 hover:bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded">العودة</button>
+                <button type="button" id="nextBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">التالي</button>
+            </div>
+            <progress id="progressBar" class="mt-4 w-full hidden" value="0" max="100"></progress>
+        </form>
+    </div>
     <script>
-        document.getElementById('dataForm').onsubmit = function(event) {
-            event.preventDefault();
-            const formData = new FormData(this);
-            // Handle form submission and save data to Excel
-            // This is where the cumulative Excel data storage logic will go.
-            alert('Form submitted!');
-        };
+        const steps = document.querySelectorAll('.step');
+        const nextBtn = document.getElementById('nextBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const progressBar = document.getElementById('progressBar');
+        let currentStep = 0;
+
+        function showStep(step) {
+            steps.forEach((s, index) => {
+                s.classList.toggle('hidden', index !== step);
+            });
+            progressBar.value = ((step + 1) / steps.length) * 100;
+            progressBar.classList.toggle('hidden', step === 0);
+        }
+
+        nextBtn.addEventListener('click', () => {
+            if (currentStep < steps.length - 1) {
+                currentStep++;
+                showStep(currentStep);
+            } else {
+                alert('تم إرسال النموذج بنجاح!');
+                // Implement the form submission logic here
+             }
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (currentStep > 0) {
+                currentStep--;
+                showStep(currentStep);
+            }
+        });
+
+        showStep(currentStep);
     </script>
 </body>
 </html>
