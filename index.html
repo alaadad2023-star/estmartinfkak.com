@@ -1,167 +1,214 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>استمارة انفكاك الطلبة المطبقين 2025-2026</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * { font-family: Arial, sans-serif !important; }
-        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .step-hide { display: none !important; }
-        .step-show { display: block !important; }
-    </style>
-</head>
-<body dir="rtl" class="min-h-screen p-4">
-    <button class="fixed bottom-4 left-4 bg-indigo-900 text-white px-4 py-2 rounded-full z-50 shadow-lg" onclick="openAdmin()">
-        <i class="fas fa-lock"></i> أدمن
-    </button>
+import { 
+  GraduationCap, 
+  Users, 
+  School, 
+  FileText, 
+  Upload, 
+  Search,
+  TrendingUp,
+  BookOpen,
+  Award,
+  BarChart3
+} from 'lucide-react';
+import { useState } from 'react';
 
-    <div id="adminLogin" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-lg shadow-lg max-w-sm">
-            <h2 class="text-2xl font-bold mb-6">تسجيل الدخول</h2>
-            <input type="text" id="adminUser" placeholder="المستخدم" class="w-full p-2 border-2 rounded mb-4">
-            <input type="password" id="adminPass" placeholder="كلمة المرور" class="w-full p-2 border-2 rounded mb-4">
-            <button onclick="checkLogin()" class="w-full bg-blue-600 text-white p-2 rounded font-bold mb-2">دخول</button>
-            <button onclick="closeAdmin()" class="w-full bg-gray-400 text-white p-2 rounded">إغلاق</button>
+export default function HomePage() {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const stats = [
+    {
+      title: 'Total Students',
+      value: '1,234',
+      icon: Users,
+      color: 'bg-blue-500',
+      textColor: 'text-blue-600',
+      bgColor: 'bg-blue-50'
+    },
+    {
+      title: 'Schools',
+      value: '45',
+      icon: School,
+      color: 'bg-green-500',
+      textColor: 'text-green-600',
+      bgColor: 'bg-green-50'
+    },
+    {
+      title: 'Exam Results',
+      value: '5,678',
+      icon: FileText,
+      color: 'bg-purple-500',
+      textColor: 'text-purple-600',
+      bgColor: 'bg-purple-50'
+    },
+    {
+      title: 'Departments',
+      value: '12',
+      icon: BookOpen,
+      color: 'bg-orange-500',
+      textColor: 'text-orange-600',
+      bgColor: 'bg-orange-50'
+    }
+  ];
+
+  const quickActions = [
+    {
+      title: 'Upload Results',
+      description: 'Upload new exam results',
+      icon: Upload,
+      href: '/admin-upload',
+      color: 'bg-blue-600 hover:bg-blue-700'
+    },
+    {
+      title: 'View Students',
+      description: 'Browse student records',
+      icon: GraduationCap,
+      href: '/students',
+      color: 'bg-green-600 hover:bg-green-700'
+    },
+    {
+      title: 'Reports',
+      description: 'Generate analytics reports',
+      icon: BarChart3,
+      href: '/reports',
+      color: 'bg-purple-600 hover:bg-purple-700'
+    },
+    {
+      title: 'Top Performers',
+      description: 'View top students',
+      icon: Award,
+      href: '/top-students',
+      color: 'bg-orange-600 hover:bg-orange-700'
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-600 p-3 rounded-lg">
+                <GraduationCap className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Exam Results Management
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  Student Performance Tracking System
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+              <span className="text-sm text-gray-600">All systems operational</span>
+            </div>
+          </div>
         </div>
-    </div>
+      </header>
 
-    <div id="adminPanel" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-lg shadow-lg max-w-3xl max-h-96 overflow-y-auto">
-            <h2 class="text-2xl font-bold mb-4">لوحة التحكم</h2>
-            <button onclick="downloadExcel()" class="bg-green-600 text-white px-6 py-2 rounded font-bold mb-4">تحميل التقرير</button>
-            <p class="mb-4">إجمالي الإرسالات: <span id="count" class="font-bold text-blue-600">0</span></p>
-            <button onclick="closeAdmin()" class="bg-red-600 text-white px-6 py-2 rounded">إغلاق</button>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Search Bar */}
+        <div className="mb-8">
+          <div className="relative max-w-2xl">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search students, departments, or results..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-4 bg-white border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 placeholder-gray-500"
+            />
+          </div>
         </div>
-    </div>
 
-    <div class="max-w-6xl mx-auto">
-        <div class="bg-white rounded-xl shadow-2xl p-8 mb-6">
-            <h1 class="text-4xl font-bold text-blue-900 text-center mb-2">استمارة انفكاك ��لطلبة المطبقين</h1>
-            <p class="text-center text-gray-600 text-lg">للعام الدراسي 2025 - 2026</p>
-        </div>
-
-        <form id="mainForm" class="bg-white rounded-xl shadow-2xl p-8">
-            <!-- الخطوة 1 -->
-            <div id="step1" class="step-show">
-                <h2 class="text-2xl font-bold text-blue-900 mb-6">معلومات المدرسة</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <input type="text" id="schoolName" placeholder="اسم المدرسة" class="p-3 border-2 rounded" required>
-                    <input type="text" id="sector" placeholder="القطاع" class="p-3 border-2 rounded" required>
-                    <input type="text" id="principal" placeholder="اسم المدير" class="p-3 border-2 rounded" required>
-                    <input type="tel" id="phone" placeholder="رقم الهاتف" class="p-3 border-2 rounded" required>
-                    <select id="schoolType" class="p-3 border-2 rounded bg-white" required>
-                        <option>اختر نوع المدرسة</option>
-                        <option>ابتدائي</option>
-                        <option>متوسطة</option>
-                        <option>ثانوي</option>
-                    </select>
-                    <input type="number" id="count" placeholder="عدد المطبقين" class="p-3 border-2 rounded" required>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {stats.map((stat, index) => (
+            <div
+              key={index}
+              className="bg-white rounded-xl shadow-md p-6 border border-gray-200 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
+                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
                 </div>
-                <button type="button" onclick="nextStep(2)" class="mt-6 bg-blue-600 text-white px-8 py-3 rounded font-bold">التالي</button>
+                <div className={`${stat.bgColor} p-4 rounded-xl`}>
+                  <stat.icon className={`h-8 w-8 ${stat.textColor}`} />
+                </div>
+              </div>
             </div>
+          ))}
+        </div>
 
-            <!-- الخطوة 2 -->
-            <div id="step2" class="step-hide">
-                <h2 class="text-2xl font-bold text-green-700 mb-6">المطبقون الداخليون</h2>
-                <div id="internalList" class="space-y-4 mb-6"></div>
-                <button type="button" onclick="prevStep(1)" class="bg-gray-500 text-white px-6 py-2 rounded mr-2">السابق</button>
-                <button type="button" onclick="nextStep(3)" class="bg-blue-600 text-white px-6 py-2 rounded">التالي</button>
-            </div>
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <FileText className="h-6 w-6 text-blue-600" />
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {quickActions.map((action, index) => (
+              <a
+                key={index}
+                href={action.href}
+                className={`${action.color} text-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all hover:scale-105`}
+              >
+                <action.icon className="h-10 w-10 mb-4" />
+                <h3 className="text-xl font-bold mb-2">{action.title}</h3>
+                <p className="text-white/90 text-sm">{action.description}</p>
+              </a>
+            ))}
+          </div>
+        </div>
 
-            <!-- الخطوة 3 -->
-            <div id="step3" class="step-hide">
-                <h2 class="text-2xl font-bold text-red-700 mb-6">المطبقون الخارجيون</h2>
-                <div id="externalList" class="space-y-4 mb-6"></div>
-                <button type="button" onclick="prevStep(2)" class="bg-gray-500 text-white px-6 py-2 rounded mr-2">السابق</button>
-                <button type="button" onclick="nextStep(4)" class="bg-blue-600 text-white px-6 py-2 rounded">التالي</button>
+        {/* Recent Activity */}
+        <div className="bg-white rounded-xl shadow-md p-8 border border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-purple-600" />
+            System Overview
+          </h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-3">
+                <Upload className="h-5 w-5 text-blue-600" />
+                <span className="text-gray-900 font-medium">Upload exam results via Admin Upload</span>
+              </div>
+              <a href="/admin-upload" className="text-blue-600 hover:text-blue-700 font-medium">
+                Go →
+              </a>
             </div>
+            
+            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center gap-3">
+                <School className="h-5 w-5 text-green-600" />
+                <span className="text-gray-900 font-medium">Manage schools and applicants</span>
+              </div>
+              <span className="text-green-600 font-medium">Active</span>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="flex items-center gap-3">
+                <Award className="h-5 w-5 text-purple-600" />
+                <span className="text-gray-900 font-medium">View top performing students</span>
+              </div>
+              <span className="text-purple-600 font-medium">Available</span>
+            </div>
+          </div>
+        </div>
+      </main>
 
-            <!-- الخطوة 4 -->
-            <div id="step4" class="step-hide">
-                <h2 class="text-2xl font-bold text-center mb-6">تأكيد الإرسال</h2>
-                <p class="text-center text-lg mb-6">هل تأكد من صحة جميع البيانات؟</p>
-                <button type="button" onclick="prevStep(3)" class="bg-gray-500 text-white px-6 py-2 rounded mr-2">السابق</button>
-                <button type="button" onclick="submitForm()" class="bg-green-600 text-white px-6 py-2 rounded font-bold">تأكيد الإرسال</button>
-            </div>
-        </form>
+      {/* Footer */}
+      <footer className="mt-12 bg-white border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-center gap-2 text-gray-600">
+            <GraduationCap className="h-5 w-5" />
+            <span>© 2024 Exam Results Management System</span>
+          </div>
+        </div>
+      </footer>
     </div>
-
-    <script>
-        let currentStep = 1;
-        const ADMIN = 'admin';
-        const PASS = '12345';
-        let logged = false;
-
-        function nextStep(n) { currentStep = n; updateSteps(); }
-        function prevStep(n) { currentStep = n; updateSteps(); }
-
-        function updateSteps() {
-            for(let i = 1; i <= 4; i++) {
-                document.getElementById(`step${i}`).classList.add('step-hide');
-            }
-            document.getElementById(`step${currentStep}`).classList.remove('step-hide');
-            document.getElementById(`step${currentStep}`).classList.add('step-show');
-        }
-
-        function openAdmin() {
-            if(logged) {
-                document.getElementById('adminPanel').classList.remove('hidden');
-                loadData();
-            } else {
-                document.getElementById('adminLogin').classList.remove('hidden');
-            }
-        }
-
-        function closeAdmin() {
-            document.getElementById('adminLogin').classList.add('hidden');
-            document.getElementById('adminPanel').classList.add('hidden');
-        }
-
-        function checkLogin() {
-            if(document.getElementById('adminUser').value === ADMIN && 
-               document.getElementById('adminPass').value === PASS) {
-                logged = true;
-                document.getElementById('adminLogin').classList.add('hidden');
-                document.getElementById('adminPanel').classList.remove('hidden');
-                loadData();
-            } else {
-                alert('خطأ!');
-            }
-        }
-
-        function loadData() {
-            let data = JSON.parse(localStorage.getItem('data') || '[]');
-            document.getElementById('count').innerText = data.length;
-        }
-
-        function downloadExcel() {
-            let data = JSON.parse(localStorage.getItem('data') || '[]');
-            let rows = [['اسم المدرسة', 'الاسم الثلاثي', 'الجامعة', 'النوع']];
-            data.forEach(d => {
-                rows.push([d.schoolName, d.names || '', d.uni || '', d.type || '']);
-            });
-            let ws = XLSX.utils.aoa_to_sheet(rows);
-            let wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws);
-            XLSX.writeFile(wb, 'تقرير.xlsx');
-        }
-
-        function submitForm() {
-            let data = JSON.parse(localStorage.getItem('data') || '[]');
-            data.push({
-                schoolName: document.getElementById('schoolName').value,
-                names: document.getElementById('internalList').innerText
-            });
-            localStorage.setItem('data', JSON.stringify(data));
-            alert('تم الحفظ!');
-            location.reload();
-        }
-
-        updateSteps();
-    </script>
-</body>
-</html>
+  );
+}
