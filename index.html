@@ -631,7 +631,7 @@
                                 class="input-field w-full px-4 py-3 rounded-lg outline-none bg-white"
                                 onchange="prepareApplicants(this.value)">
                                 <option value="">اختر العدد</option>
-                                ${Array.from({length: 23}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('')}
+                                ${Array.from({length: 23}, (v, i) => `<option value="${i+1}">${i+1}</option>`).join('')}
                             </select>
                         </div>
                     </div>
