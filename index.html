@@ -1,78 +1,167 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Step Form</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>استمارة انفكاك الطلبة المطبقين 2025-2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .hidden { display: none; }
+        * { font-family: Arial, sans-serif !important; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .step-hide { display: none !important; }
+        .step-show { display: block !important; }
     </style>
 </head>
-<body class="bg-gray-100">
-    <div class="container mx-auto p-6">
-        <h1 class="text-2xl font-bold mb-6">تسجيل دخول الإدارة</h1>
-        <form id="multiStepForm" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-            <div id="step1" class="step">
-                <h2 class="text-xl font-semibold mb-4">الخطوة 1: المعلومات الأساسية</h2>
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="name">الاسم:</label>
-                <input id="name" type="text" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline mb-4" />
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="email">البريد الإلكتروني:</label>
-                <input id="email" type="email" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
+<body dir="rtl" class="min-h-screen p-4">
+    <button class="fixed bottom-4 left-4 bg-indigo-900 text-white px-4 py-2 rounded-full z-50 shadow-lg" onclick="openAdmin()">
+        <i class="fas fa-lock"></i> أدمن
+    </button>
+
+    <div id="adminLogin" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-sm">
+            <h2 class="text-2xl font-bold mb-6">تسجيل الدخول</h2>
+            <input type="text" id="adminUser" placeholder="المستخدم" class="w-full p-2 border-2 rounded mb-4">
+            <input type="password" id="adminPass" placeholder="كلمة المرور" class="w-full p-2 border-2 rounded mb-4">
+            <button onclick="checkLogin()" class="w-full bg-blue-600 text-white p-2 rounded font-bold mb-2">دخول</button>
+            <button onclick="closeAdmin()" class="w-full bg-gray-400 text-white p-2 rounded">إغلاق</button>
+        </div>
+    </div>
+
+    <div id="adminPanel" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-3xl max-h-96 overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-4">لوحة التحكم</h2>
+            <button onclick="downloadExcel()" class="bg-green-600 text-white px-6 py-2 rounded font-bold mb-4">تحميل التقرير</button>
+            <p class="mb-4">إجمالي الإرسالات: <span id="count" class="font-bold text-blue-600">0</span></p>
+            <button onclick="closeAdmin()" class="bg-red-600 text-white px-6 py-2 rounded">إغلاق</button>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto">
+        <div class="bg-white rounded-xl shadow-2xl p-8 mb-6">
+            <h1 class="text-4xl font-bold text-blue-900 text-center mb-2">استمارة انفكاك ��لطلبة المطبقين</h1>
+            <p class="text-center text-gray-600 text-lg">للعام الدراسي 2025 - 2026</p>
+        </div>
+
+        <form id="mainForm" class="bg-white rounded-xl shadow-2xl p-8">
+            <!-- الخطوة 1 -->
+            <div id="step1" class="step-show">
+                <h2 class="text-2xl font-bold text-blue-900 mb-6">معلومات المدرسة</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <input type="text" id="schoolName" placeholder="اسم المدرسة" class="p-3 border-2 rounded" required>
+                    <input type="text" id="sector" placeholder="القطاع" class="p-3 border-2 rounded" required>
+                    <input type="text" id="principal" placeholder="اسم المدير" class="p-3 border-2 rounded" required>
+                    <input type="tel" id="phone" placeholder="رقم الهاتف" class="p-3 border-2 rounded" required>
+                    <select id="schoolType" class="p-3 border-2 rounded bg-white" required>
+                        <option>اختر نوع المدرسة</option>
+                        <option>ابتدائي</option>
+                        <option>متوسطة</option>
+                        <option>ثانوي</option>
+                    </select>
+                    <input type="number" id="count" placeholder="عدد المطبقين" class="p-3 border-2 rounded" required>
+                </div>
+                <button type="button" onclick="nextStep(2)" class="mt-6 bg-blue-600 text-white px-8 py-3 rounded font-bold">التالي</button>
             </div>
-            <div id="step2" class="step hidden">
-                <h2 class="text-xl font-semibold mb-4">الخطوة 2: المزيد من المعلومات</h2>
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="address">العنوان:</label>
-                <input id="address" type="text" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline mb-4" />
+
+            <!-- الخطوة 2 -->
+            <div id="step2" class="step-hide">
+                <h2 class="text-2xl font-bold text-green-700 mb-6">المطبقون الداخليون</h2>
+                <div id="internalList" class="space-y-4 mb-6"></div>
+                <button type="button" onclick="prevStep(1)" class="bg-gray-500 text-white px-6 py-2 rounded mr-2">السابق</button>
+                <button type="button" onclick="nextStep(3)" class="bg-blue-600 text-white px-6 py-2 rounded">التالي</button>
             </div>
-            <div id="step3" class="step hidden">
-                <h2 class="text-xl font-semibold mb-4">الخطوة 3: تحميل الملفات</h2>
-                <input type="file" required accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline mb-4" />
+
+            <!-- الخطوة 3 -->
+            <div id="step3" class="step-hide">
+                <h2 class="text-2xl font-bold text-red-700 mb-6">المطبقون الخارجيون</h2>
+                <div id="externalList" class="space-y-4 mb-6"></div>
+                <button type="button" onclick="prevStep(2)" class="bg-gray-500 text-white px-6 py-2 rounded mr-2">السابق</button>
+                <button type="button" onclick="nextStep(4)" class="bg-blue-600 text-white px-6 py-2 rounded">التالي</button>
             </div>
-            <div id="step4" class="step hidden">
-                <h2 class="text-xl font-semibold mb-4">الخطوة 4: مراجعة المعلومات</h2>
-                <div id="reviewContent"></div>
+
+            <!-- الخطوة 4 -->
+            <div id="step4" class="step-hide">
+                <h2 class="text-2xl font-bold text-center mb-6">تأكيد الإرسال</h2>
+                <p class="text-center text-lg mb-6">هل تأكد من صحة جميع البيانات؟</p>
+                <button type="button" onclick="prevStep(3)" class="bg-gray-500 text-white px-6 py-2 rounded mr-2">السابق</button>
+                <button type="button" onclick="submitForm()" class="bg-green-600 text-white px-6 py-2 rounded font-bold">تأكيد الإرسال</button>
             </div>
-            <div class="flex justify-between mt-4">
-                <button type="button" id="prevBtn" class="bg-gray-300 hover:bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded">العودة</button>
-                <button type="button" id="nextBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">التالي</button>
-            </div>
-            <progress id="progressBar" class="mt-4 w-full hidden" value="0" max="100"></progress>
         </form>
     </div>
-    <script>
-        const steps = document.querySelectorAll('.step');
-        const nextBtn = document.getElementById('nextBtn');
-        const prevBtn = document.getElementById('prevBtn');
-        const progressBar = document.getElementById('progressBar');
-        let currentStep = 0;
 
-        function showStep(step) {
-            steps.forEach((s, index) => {
-                s.classList.toggle('hidden', index !== step);
-            });
-            progressBar.value = ((step + 1) / steps.length) * 100;
-            progressBar.classList.toggle('hidden', step === 0);
+    <script>
+        let currentStep = 1;
+        const ADMIN = 'admin';
+        const PASS = '12345';
+        let logged = false;
+
+        function nextStep(n) { currentStep = n; updateSteps(); }
+        function prevStep(n) { currentStep = n; updateSteps(); }
+
+        function updateSteps() {
+            for(let i = 1; i <= 4; i++) {
+                document.getElementById(`step${i}`).classList.add('step-hide');
+            }
+            document.getElementById(`step${currentStep}`).classList.remove('step-hide');
+            document.getElementById(`step${currentStep}`).classList.add('step-show');
         }
 
-        nextBtn.addEventListener('click', () => {
-            if (currentStep < steps.length - 1) {
-                currentStep++;
-                showStep(currentStep);
+        function openAdmin() {
+            if(logged) {
+                document.getElementById('adminPanel').classList.remove('hidden');
+                loadData();
             } else {
-                alert('تم إرسال النموذج بنجاح!');
-                // Implement the form submission logic here
-             }
-        });
-
-        prevBtn.addEventListener('click', () => {
-            if (currentStep > 0) {
-                currentStep--;
-                showStep(currentStep);
+                document.getElementById('adminLogin').classList.remove('hidden');
             }
-        });
+        }
 
-        showStep(currentStep);
+        function closeAdmin() {
+            document.getElementById('adminLogin').classList.add('hidden');
+            document.getElementById('adminPanel').classList.add('hidden');
+        }
+
+        function checkLogin() {
+            if(document.getElementById('adminUser').value === ADMIN && 
+               document.getElementById('adminPass').value === PASS) {
+                logged = true;
+                document.getElementById('adminLogin').classList.add('hidden');
+                document.getElementById('adminPanel').classList.remove('hidden');
+                loadData();
+            } else {
+                alert('خطأ!');
+            }
+        }
+
+        function loadData() {
+            let data = JSON.parse(localStorage.getItem('data') || '[]');
+            document.getElementById('count').innerText = data.length;
+        }
+
+        function downloadExcel() {
+            let data = JSON.parse(localStorage.getItem('data') || '[]');
+            let rows = [['اسم المدرسة', 'الاسم الثلاثي', 'الجامعة', 'النوع']];
+            data.forEach(d => {
+                rows.push([d.schoolName, d.names || '', d.uni || '', d.type || '']);
+            });
+            let ws = XLSX.utils.aoa_to_sheet(rows);
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws);
+            XLSX.writeFile(wb, 'تقرير.xlsx');
+        }
+
+        function submitForm() {
+            let data = JSON.parse(localStorage.getItem('data') || '[]');
+            data.push({
+                schoolName: document.getElementById('schoolName').value,
+                names: document.getElementById('internalList').innerText
+            });
+            localStorage.setItem('data', JSON.stringify(data));
+            alert('تم الحفظ!');
+            location.reload();
+        }
+
+        updateSteps();
     </script>
 </body>
 </html>
