@@ -27,13 +27,13 @@ import {
   Layout,
   ToggleLeft,
   ToggleRight,
-  ChevronLeft,
-  AlertCircle
+  Facebook,
+  Music
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
 
-// ============= TYPES =============
+// --- Types ---
 interface Student {
   id: string;
   name: string;
@@ -63,25 +63,15 @@ interface FieldSettings {
   showStudyType: boolean;
 }
 
-interface Submission {
-  id: number;
-  schoolName: string;
-  schoolType: string;
-  principalName: string;
-  principalPhone: string;
-  sector: string;
-  students: Student[];
-  timestamp: string;
-}
-
 interface AppState {
-  step: 'home' | 'school' | 'students' | 'admin_login' | 'admin_panel' | 'success' | 'about' | 'contact';
+  step: 'school' | 'students' | 'admin_login' | 'admin_panel' | 'success' | 'about' | 'contact';
   schoolData: SchoolData;
   students: Student[];
   fieldSettings: FieldSettings;
+  logoUrl: string;
 }
 
-// ============= CONSTANTS =============
+// --- Constants ---
 const SECTORS = ['السماوة', 'الخضر', 'الرميثة', 'الوركاء'];
 const SCHOOL_TYPES = ['رياض اطفال', 'ابتدائي', 'متوسطة', 'ثانوي', 'اعدادي', 'معهد الفنون'];
 const UNIVERSITIES = ['جامعة المثنى', 'جامعة ساوة الاهلية', 'جامعة الصادق الاهلية'];
@@ -105,123 +95,85 @@ const DEFAULT_FIELD_SETTINGS: FieldSettings = {
   showStudyType: true,
 };
 
-// ============= COMPONENTS =============
+// --- Components ---
 
-// Header Component
-const Header = () => (
-  <header className="bg-gradient-to-b from-blue-900 to-blue-800 text-white p-3 md:p-6 shadow-lg sticky top-0 z-40">
-    <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-      <div className="flex-1 text-center md:text-right">
-        <h1 className="text-lg md:text-2xl font-black">وزارة التربية</h1>
-        <p className="text-blue-100 text-sm md:text-base font-medium">مديرية تربية المثنى</p>
+const Header = ({ logoUrl }: { logoUrl: string }) => (
+  <header className="bg-white border-b-2 border-blue-100 p-4 shadow-sm">
+    <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-right">
+      <div className="flex-1 order-2 md:order-1">
+        <h1 className="text-xl font-bold text-blue-900">وزارة التربية</h1>
+        <p className="text-blue-700 font-medium">مديرية تربية المثنى</p>
       </div>
       
-      <div className="flex-shrink-0">
-        <div className="w-20 h-20 md:w-28 md:h-28 bg-white rounded-full flex items-center justify-center shadow-lg border-4 border-yellow-400">
-          <School className="w-10 h-10 md:w-14 md:h-14 text-blue-900" />
-        </div>
+      <div className="flex-shrink-0 order-1 md:order-2">
+        <img 
+          src={logoUrl} 
+          alt="شعار قسم الاعداد والتدريب" 
+          className="w-24 h-24 md:w-32 md:h-32 object-contain rounded-2xl border-4 border-blue-50 shadow-lg"
+          referrerPolicy="no-referrer"
+        />
       </div>
 
-      <div className="flex-1 text-center md:text-left">
-        <h1 className="text-lg md:text-2xl font-black">قسم الاعداد والتدريب</h1>
-        <p className="text-blue-100 text-sm md:text-base font-medium">شعبة المعاهد</p>
+      <div className="flex-1 order-3 text-center md:text-left">
+        <h1 className="text-xl font-bold text-blue-900">قسم الاعداد والتدريب</h1>
+        <p className="text-blue-700 font-medium">شعبة المعاهد</p>
       </div>
     </div>
   </header>
 );
 
-// Navigation Component - Mobile & Desktop
-const Navigation = ({ 
-  activeTab, 
-  onTabChange, 
-  isMobileOpen, 
-  setIsMobileOpen 
-}: { 
-  activeTab: string; 
-  onTabChange: (tab: AppState['step']) => void;
-  isMobileOpen: boolean;
-  setIsMobileOpen: (open: boolean) => void;
-}) => {
-  const tabs: { id: AppState['step']; label: string; icon: React.ReactNode }[] = [
+const Navbar = ({ activeTab, onTabChange }: { activeTab: string, onTabChange: (tab: string) => void }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const tabs = [
     { id: 'home', label: 'الصفحة الرئيسية', icon: <Home size={18} /> },
-    { id: 'school', label: 'استمارة جديدة', icon: <School size={18} /> },
+    { id: 'school', label: 'معلومات المدرسة', icon: <School size={18} /> },
+    { id: 'internal', label: 'المطبقون من داخل المحافظة', icon: <UserCheck size={18} /> },
+    { id: 'external', label: 'المطبقون من خارج المحافظة', icon: <UserPlus size={18} /> },
+    { id: 'report', label: 'تقرير الاستلام', icon: <FileText size={18} /> },
     { id: 'about', label: 'من نحن', icon: <Info size={18} /> },
     { id: 'contact', label: 'اتصل بنا', icon: <Phone size={18} /> },
   ];
 
   return (
-    <>
-      {/* Desktop Navigation */}
-      <nav className="hidden md:block bg-blue-900 text-white shadow-lg sticky top-24 z-30">
-        <div className="max-w-7xl mx-auto px-4 flex overflow-x-auto">
+    <nav className="bg-blue-900 text-white sticky top-0 z-50 shadow-lg">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex justify-between items-center h-16 md:hidden">
+          <span className="font-bold">استمارة الانفكاك</span>
+          <button onClick={() => setIsOpen(!isOpen)} className="p-2 bg-blue-800 rounded-lg">
+            {isOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+
+        <div className={`${isOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row whitespace-nowrap overflow-x-auto scrollbar-hide py-2 md:py-0`}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={`flex items-center gap-2 px-6 py-4 transition-all border-b-4 text-sm whitespace-nowrap ${
-                activeTab === tab.id 
-                  ? 'border-yellow-400 bg-blue-800' 
-                  : 'border-transparent hover:bg-blue-800'
+              onClick={() => {
+                onTabChange(tab.id);
+                setIsOpen(false);
+              }}
+              className={`flex items-center gap-2 px-6 py-4 transition-all hover:bg-blue-800 border-b-4 text-sm md:text-base ${
+                activeTab === tab.id ? 'border-yellow-400 bg-blue-800' : 'border-transparent'
               }`}
             >
               {tab.icon}
-              <span className="font-bold">{tab.label}</span>
+              <span className="font-medium">{tab.label}</span>
             </button>
           ))}
         </div>
-      </nav>
-
-      {/* Mobile Navigation Header */}
-      <div className="md:hidden bg-blue-900 text-white px-4 py-3 flex justify-between items-center sticky top-24 z-30 shadow-md">
-        <span className="text-sm font-bold">{tabs.find(t => t.id === activeTab)?.label}</span>
-        <button 
-          onClick={() => setIsMobileOpen(!isMobileOpen)}
-          className="p-2 hover:bg-blue-800 rounded-lg transition-colors"
-        >
-          {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
       </div>
-
-      {/* Mobile Dropdown Menu */}
-      {isMobileOpen && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
-          className="md:hidden bg-blue-800 text-white shadow-lg z-20"
-        >
-          <div className="flex flex-col">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  onTabChange(tab.id);
-                  setIsMobileOpen(false);
-                }}
-                className={`flex items-center gap-3 px-4 py-4 border-r-4 transition-all text-sm ${
-                  activeTab === tab.id 
-                    ? 'border-yellow-400 bg-blue-900' 
-                    : 'border-transparent hover:bg-blue-700'
-                }`}
-              >
-                {tab.icon}
-                <span className="font-bold">{tab.label}</span>
-              </button>
-            ))}
-          </div>
-        </motion.div>
-      )}
-    </>
+    </nav>
   );
 };
 
-// ============= MAIN APP COMPONENT =============
 export default function App() {
   const [state, setState] = useState<AppState>({
-    step: 'home',
+    step: 'school',
     schoolData: DEFAULT_SCHOOL_DATA,
     students: [],
     fieldSettings: DEFAULT_FIELD_SETTINGS,
+    logoUrl: 'https://i.ibb.co/v4m0s9Z/logo-edu.png',
   });
 
   const [isAdmin, setIsAdmin] = useState(false);
@@ -229,54 +181,32 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState('admin123');
   const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
   const [showPass, setShowPass] = useState(false);
-  const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [allSubmissions, setAllSubmissions] = useState<any[]>([]);
 
-  // Load data from localStorage
   useEffect(() => {
-    try {
-      const savedSubmissions = localStorage.getItem('submissions');
-      if (savedSubmissions) setAllSubmissions(JSON.parse(savedSubmissions));
+    const savedSubmissions = localStorage.getItem('submissions');
+    if (savedSubmissions) setAllSubmissions(JSON.parse(savedSubmissions));
+    
+    const savedPass = localStorage.getItem('adminPassword');
+    if (savedPass) setAdminPassword(savedPass);
 
-      const savedPass = localStorage.getItem('adminPassword');
-      if (savedPass) setAdminPassword(savedPass);
+    const savedUser = localStorage.getItem('adminUsername');
+    if (savedUser) setAdminUsername(savedUser);
 
-      const savedUser = localStorage.getItem('adminUsername');
-      if (savedUser) setAdminUsername(savedUser);
+    const savedSettings = localStorage.getItem('fieldSettings');
+    if (savedSettings) setState(prev => ({ ...prev, fieldSettings: JSON.parse(savedSettings) }));
 
-      const savedSettings = localStorage.getItem('fieldSettings');
-      if (savedSettings) setState(prev => ({ ...prev, fieldSettings: JSON.parse(savedSettings) }));
-    } catch (error) {
-      console.error('خطأ في تحميل البيانات:', error);
-    }
+    const savedLogo = localStorage.getItem('logoUrl');
+    if (savedLogo) setState(prev => ({ ...prev, logoUrl: savedLogo }));
   }, []);
 
-  // Validate phone number
-  const validatePhoneNumber = (phone: string): boolean => {
-    return phone.length === 11 && /^\d{11}$/.test(phone);
-  };
-
-  // Handle school form submission
   const handleSchoolSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!state.schoolData.schoolName.trim()) {
-      alert('يرجى إدخال اسم المدرسة');
+    if (state.schoolData.principalPhone.length !== 11 && state.fieldSettings.showPrincipalPhone) {
+      alert('رقم الهاتف يجب أن يكون 11 رقماً');
       return;
     }
-
-    if (!state.schoolData.principalName.trim()) {
-      alert('يرجى إدخال اسم مدير المدرسة');
-      return;
-    }
-
-    if (state.fieldSettings.showPrincipalPhone && !validatePhoneNumber(state.schoolData.principalPhone)) {
-      alert('رقم الهاتف يجب أن يكون 11 رقماً (07XXXXXXXXX)');
-      return;
-    }
-
-    const initialStudents: Student[] = Array.from({ length: state.schoolData.studentCount }).map(() => ({
+    const initialStudents: Student[] = Array.from({ length: state.schoolData.studentCount }).map((_, i) => ({
       id: Math.random().toString(36).substr(2, 9),
       name: '',
       university: UNIVERSITIES[0],
@@ -286,12 +216,10 @@ export default function App() {
       startDate: '',
       releaseDate: '',
     }));
-
     setState(prev => ({ ...prev, step: 'students', students: initialStudents }));
     window.scrollTo(0, 0);
   };
 
-  // Add student
   const addStudent = () => {
     setState(prev => ({
       ...prev,
@@ -311,7 +239,6 @@ export default function App() {
     }));
   };
 
-  // Remove student
   const removeStudent = (id: string) => {
     setState(prev => ({
       ...prev,
@@ -319,7 +246,6 @@ export default function App() {
     }));
   };
 
-  // Update student
   const updateStudent = (id: string, field: keyof Student, value: string) => {
     setState(prev => ({
       ...prev,
@@ -327,97 +253,61 @@ export default function App() {
     }));
   };
 
-  // Final submission
-  const handleFinalSubmit = async () => {
-    if (state.students.length === 0) {
-      alert('يرجى إضافة مطبق واحد على الأقل');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const newSubmission: Submission = {
-        id: Date.now(),
-        schoolName: state.schoolData.schoolName,
-        schoolType: state.schoolData.schoolType,
-        principalName: state.schoolData.principalName,
-        principalPhone: state.schoolData.principalPhone,
-        sector: state.schoolData.sector,
-        students: state.students,
-        timestamp: new Date().toLocaleString('ar-IQ'),
-      };
-
-      const updated = [...allSubmissions, newSubmission];
-      setAllSubmissions(updated);
-      localStorage.setItem('submissions', JSON.stringify(updated));
-
-      setState(prev => ({ ...prev, step: 'success' }));
-      window.scrollTo(0, 0);
-    } catch (error) {
-      alert('حدث خطأ أثناء الحفظ');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+  const handleFinalSubmit = () => {
+    const newSubmission = {
+      ...state.schoolData,
+      students: state.students,
+      timestamp: new Date().toLocaleString('ar-IQ'),
+      id: Date.now()
+    };
+    const updated = [...allSubmissions, newSubmission];
+    setAllSubmissions(updated);
+    localStorage.setItem('submissions', JSON.stringify(updated));
+    setState(prev => ({ ...prev, step: 'success' }));
+    window.scrollTo(0, 0);
   };
 
-  // Export to Excel
-  const exportToExcel = (data: Submission[]) => {
+  const exportToExcel = (data: any[]) => {
     if (data.length === 0) {
       alert('لا توجد بيانات لتصديرها');
       return;
     }
+    const flattened = data.flatMap(sub => 
+      sub.students.map((s: any) => ({
+        'تاريخ الارسال': sub.timestamp,
+        'اسم المدرسة': sub.schoolName,
+        'نوع المدرسة': sub.schoolType,
+        'مدير المدرسة': sub.principalName,
+        'هاتف المدير': sub.principalPhone,
+        'القطاع': sub.sector,
+        'اسم الطالب': s.name,
+        'الجامعة': s.university,
+        'الكلية': s.college,
+        'القسم': s.department,
+        'نوع الدراسة': s.studyType,
+        'تاريخ المباشرة': s.startDate,
+        'تاريخ الانفكاك': s.releaseDate,
+      }))
+    );
 
-    try {
-      const flattened = data.flatMap(sub => 
-        sub.students.map((s) => ({
-          'التاريخ': sub.timestamp,
-          'اسم المدرسة': sub.schoolName,
-          'نوع المدرسة': sub.schoolType,
-          'مدير المدرسة': sub.principalName,
-          'هاتف المدير': sub.principalPhone,
-          'القطاع': sub.sector,
-          'اسم الطالب': s.name,
-          'الجامعة': s.university,
-          'الكلية': s.college,
-          'القسم': s.department,
-          'نوع الدراسة': s.studyType,
-          'تاريخ البدء': s.startDate,
-          'تاريخ الانفكاك': s.releaseDate,
-        }))
-      );
-
-      const ws = XLSX.utils.json_to_sheet(flattened);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "المطبقون");
-      XLSX.writeFile(wb, `تقرير_المطبقين_${new Date().toLocaleDateString('ar-IQ')}.xlsx`);
-    } catch (error) {
-      alert('خطأ في تصدير الملف');
-      console.error(error);
-    }
+    const ws = XLSX.utils.json_to_sheet(flattened);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "المطبقون");
+    XLSX.writeFile(wb, "تقرير_المطبقين_المثنى_تراكمي.xlsx");
   };
 
-  // Admin login
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (loginForm.user === adminUsername && loginForm.pass === adminPassword) {
       setIsAdmin(true);
       setState(prev => ({ ...prev, step: 'admin_panel' }));
       setLoginForm({ user: '', pass: '' });
     } else {
-      alert('بيانات الدخول غير صحيحة');
+      alert('خطأ في اسم المستخدم أو كلمة المرور');
     }
   };
 
-  // Update admin credentials
   const updateAdminCredentials = (newUser: string, newPass: string) => {
-    if (!newUser.trim() || !newPass.trim()) {
-      alert('يرجى ملء جميع الحقول');
-      return;
-    }
-
     setAdminUsername(newUser);
     setAdminPassword(newPass);
     localStorage.setItem('adminUsername', newUser);
@@ -425,14 +315,12 @@ export default function App() {
     alert('تم تحديث بيانات الدخول بنجاح');
   };
 
-  // Toggle field visibility
   const toggleField = (field: keyof FieldSettings) => {
     const newSettings = { ...state.fieldSettings, [field]: !state.fieldSettings[field] };
     setState(prev => ({ ...prev, fieldSettings: newSettings }));
     localStorage.setItem('fieldSettings', JSON.stringify(newSettings));
   };
 
-  // Delete submission
   const deleteSubmission = (id: number) => {
     if (confirm('هل أنت متأكد من حذف هذه الاستمارة؟')) {
       const updated = allSubmissions.filter(s => s.id !== id);
@@ -441,761 +329,728 @@ export default function App() {
     }
   };
 
-  // Share data
-  const shareData = (platform: string) => {
-    const text = `تقرير المطبقين - مديرية تربية المثنى\nإجمالي الاستمارات: ${allSubmissions.length}\nإجمالي المطبقين: ${allSubmissions.reduce((acc, curr) => acc + curr.students.length, 0)}`;
+  const generateExcelBlob = (data: any[]) => {
+    const flattened = data.flatMap(sub => 
+      sub.students.map((s: any) => ({
+        'تاريخ الارسال': sub.timestamp,
+        'اسم المدرسة': sub.schoolName,
+        'نوع المدرسة': sub.schoolType,
+        'مدير المدرسة': sub.principalName,
+        'هاتف المدير': sub.principalPhone,
+        'القطاع': sub.sector,
+        'اسم الطالب': s.name,
+        'الجامعة': s.university,
+        'الكلية': s.college,
+        'القسم': s.department,
+        'نوع الدراسة': s.studyType,
+        'تاريخ المباشرة': s.startDate,
+        'تاريخ الانفكاك': s.releaseDate,
+      }))
+    );
 
-    if (platform === 'whatsapp') {
-      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    } else if (platform === 'telegram') {
-      window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(text)}`, '_blank');
-    } else if (platform === 'email') {
-      window.open(`mailto:?subject=تقرير المطبقين&body=${encodeURIComponent(text)}`, '_blank');
-    }
+    const ws = XLSX.utils.json_to_sheet(flattened);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "المطبقون");
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    return new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   };
 
-  // Render pages
-  const renderPage = () => {
-    switch (state.step) {
-      case 'home':
-        return (
-          <motion.div
-            key="home"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="space-y-6 pb-10"
-          >
-            <div className="bg-gradient-to-r from-blue-600 to-blue-900 text-white p-6 md:p-10 rounded-3xl shadow-xl">
-              <h2 className="text-2xl md:text-4xl font-black mb-4">أهلا وسهلا</h2>
-              <p className="text-blue-100 text-lg mb-6">
-                نظام استمارة الانفكاك الإلكتروني لقسم الاعداد والتدريب - مديرية تربية المثنى
-              </p>
-              <button
-                onClick={() => setState(prev => ({ ...prev, step: 'school' }))}
-                className="bg-yellow-400 text-blue-900 px-8 py-4 rounded-2xl font-black text-lg hover:bg-yellow-500 transition-all shadow-lg inline-flex items-center gap-2"
-              >
-                <Plus size={24} />
-                استمارة جديدة
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-blue-600">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <FileText className="text-blue-600" size={24} />
-                  </div>
-                  <h3 className="text-xl font-bold">عدد الاستمارات</h3>
-                </div>
-                <p className="text-4xl font-black text-blue-600">{allSubmissions.length}</p>
-              </div>
-
-              <div className="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-green-600">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <UserCheck className="text-green-600" size={24} />
-                  </div>
-                  <h3 className="text-xl font-bold">إجمالي المطبقين</h3>
-                </div>
-                <p className="text-4xl font-black text-green-600">
-                  {allSubmissions.reduce((acc, curr) => acc + curr.students.length, 0)}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 p-6 rounded-2xl border-2 border-blue-200">
-              <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
-                <AlertCircle size={20} />
-                معلومات مهمة
-              </h3>
-              <ul className="space-y-2 text-gray-700 text-sm">
-                <li>✓ تأكد من صحة البيانات قبل الإرسال</li>
-                <li>✓ رقم الهاتف يجب أن يكون 11 رقماً (07XXXXXXXXX)</li>
-                <li>✓ جميع البيانات محفوظة في الجهاز محلياً</li>
-                <li>✓ يمكنك تصدير البيانات إلى ملف Excel من لوحة التحكم</li>
-              </ul>
-            </div>
-          </motion.div>
-        );
-
-      case 'school':
-        return (
-          <motion.div
-            key="school"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="bg-white p-4 md:p-10 rounded-3xl shadow-2xl border border-blue-50 pb-10"
-          >
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-2 h-8 bg-yellow-400 rounded-full"></div>
-              <h2 className="text-2xl md:text-3xl font-black text-blue-900">معلومات المدرسة</h2>
-            </div>
-
-            <form onSubmit={handleSchoolSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                {/* School Name */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-600">اسم المدرسة *</label>
-                  <input
-                    required
-                    type="text"
-                    value={state.schoolData.schoolName}
-                    onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, schoolName: e.target.value } }))}
-                    className="w-full p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-base"
-                    placeholder="اسم المدرسة"
-                  />
-                </div>
-
-                {/* School Type */}
-                {state.fieldSettings.showSchoolType && (
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600">نوع المدرسة</label>
-                    <select
-                      value={state.schoolData.schoolType}
-                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, schoolType: e.target.value } }))}
-                      className="w-full p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-base"
-                    >
-                      {SCHOOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                )}
-
-                {/* Principal Name */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-600">اسم مدير المدرسة *</label>
-                  <input
-                    required
-                    type="text"
-                    value={state.schoolData.principalName}
-                    onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, principalName: e.target.value } }))}
-                    className="w-full p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-base"
-                    placeholder="الاسم الثلاثي"
-                  />
-                </div>
-
-                {/* Principal Phone */}
-                {state.fieldSettings.showPrincipalPhone && (
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600">رقم الهاتف (11 رقم)</label>
-                    <input
-                      required
-                      type="tel"
-                      maxLength={11}
-                      inputMode="numeric"
-                      value={state.schoolData.principalPhone}
-                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, principalPhone: e.target.value.replace(/\D/g, '') } }))}
-                      className="w-full p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-base"
-                      placeholder="07XXXXXXXXX"
-                    />
-                  </div>
-                )}
-
-                {/* Sector */}
-                {state.fieldSettings.showSector && (
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600">القطاع</label>
-                    <select
-                      value={state.schoolData.sector}
-                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, sector: e.target.value } }))}
-                      className="w-full p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-base"
-                    >
-                      {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                )}
-
-                {/* Student Count */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-600">عدد المطبقين</label>
-                  <select
-                    value={state.schoolData.studentCount}
-                    onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, studentCount: parseInt(e.target.value) } }))}
-                    className="w-full p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-base"
-                  >
-                    {Array.from({ length: 50 }).map((_, i) => (
-                      <option key={i + 1} value={i + 1}>{i + 1}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col md:flex-row gap-3 pt-6">
-                <button 
-                  type="button" 
-                  onClick={() => setState(prev => ({ ...prev, step: 'home' }))}
-                  className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-2xl hover:bg-gray-200 transition-all font-bold"
-                >
-                  <ChevronLeft size={20} />
-                  رجوع
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-yellow-400 text-blue-900 rounded-2xl hover:bg-yellow-500 transition-all font-black shadow-lg"
-                >
-                  <Send size={20} />
-                  التالي
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        );
-
-      case 'students':
-        return (
-          <motion.div
-            key="students"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="space-y-6 pb-10"
-          >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-4 md:p-8 rounded-3xl shadow-xl">
-              <div className="flex justify-between items-start gap-4">
-                <div className="text-right flex-1">
-                  <h2 className="text-2xl md:text-3xl font-bold">بيانات المطبقين</h2>
-                  <p className="text-blue-100 mt-2">
-                    {state.schoolData.schoolName} ({state.schoolData.schoolType})
-                  </p>
-                  <p className="text-blue-100 text-sm mt-1">{state.students.length} مطبق</p>
-                </div>
-                <button 
-                  onClick={() => setState(prev => ({ ...prev, step: 'school' }))}
-                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-xl transition-all border border-white/30 text-sm md:text-base font-bold"
-                >
-                  <ChevronLeft size={18} />
-                  تعديل
-                </button>
-              </div>
-            </div>
-
-            {/* Students List */}
-            <div className="space-y-4">
-              {state.students.map((student, index) => (
-                <motion.div
-                  key={student.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="bg-white p-4 md:p-6 rounded-2xl shadow-lg border-l-4 border-blue-600 relative"
-                >
-                  {/* Header */}
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs md:text-sm font-bold">
-                      مطبق #{index + 1}
-                    </span>
-                    {state.students.length > 1 && (
-                      <button
-                        onClick={() => removeStudent(student.id)}
-                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-all"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Fields */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-                    {/* Name */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-500 uppercase">الاسم *</label>
-                      <input
-                        required
-                        type="text"
-                        value={student.name}
-                        onChange={e => updateStudent(student.id, 'name', e.target.value)}
-                        className="w-full p-2 md:p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm md:text-base"
-                        placeholder="الاسم الكامل"
-                      />
-                    </div>
-
-                    {/* University */}
-                    {state.fieldSettings.showUniversity && (
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">الجامعة</label>
-                        <select
-                          value={student.university}
-                          onChange={e => updateStudent(student.id, 'university', e.target.value)}
-                          className="w-full p-2 md:p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm md:text-base"
-                        >
-                          {UNIVERSITIES.map(u => <option key={u} value={u}>{u}</option>)}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* College */}
-                    {state.fieldSettings.showCollege && (
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">الكلية</label>
-                        <select
-                          value={student.college}
-                          onChange={e => updateStudent(student.id, 'college', e.target.value)}
-                          className="w-full p-2 md:p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm md:text-base"
-                        >
-                          {COLLEGES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* Department */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-500 uppercase">القسم</label>
-                      <input
-                        type="text"
-                        value={student.department}
-                        onChange={e => updateStudent(student.id, 'department', e.target.value)}
-                        className="w-full p-2 md:p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm md:text-base"
-                        placeholder="القسم الدراسي"
-                      />
-                    </div>
-
-                    {/* Study Type */}
-                    {state.fieldSettings.showStudyType && (
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">نوع الدراسة</label>
-                        <select
-                          value={student.studyType}
-                          onChange={e => updateStudent(student.id, 'studyType', e.target.value as 'صباحي' | 'مسائي')}
-                          className="w-full p-2 md:p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm md:text-base"
-                        >
-                          <option value="صباحي">صباحي</option>
-                          <option value="مسائي">مسائي</option>
-                        </select>
-                      </div>
-                    )}
-
-                    {/* Start Date */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-500 uppercase">البدء</label>
-                      <input
-                        type="date"
-                        value={student.startDate}
-                        onChange={e => updateStudent(student.id, 'startDate', e.target.value)}
-                        className="w-full p-2 md:p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm md:text-base"
-                      />
-                    </div>
-
-                    {/* End Date */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-500 uppercase">الانفكاك</label>
-                      <input
-                        type="date"
-                        value={student.releaseDate}
-                        onChange={e => updateStudent(student.id, 'releaseDate', e.target.value)}
-                        className="w-full p-2 md:p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm md:text-base"
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button 
-                onClick={addStudent} 
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white rounded-2xl hover:bg-green-600 transition-all font-bold shadow-lg"
-              >
-                <Plus size={20} />
-                إضافة مطبق
-              </button>
-              <button 
-                onClick={() => setState(prev => ({ ...prev, step: 'school' }))}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-2xl hover:bg-gray-200 transition-all font-bold"
-              >
-                <ChevronLeft size={20} />
-                رجوع
-              </button>
-              <button 
-                onClick={handleFinalSubmit}
-                disabled={loading}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-yellow-400 text-blue-900 rounded-2xl hover:bg-yellow-500 disabled:bg-gray-300 transition-all font-black shadow-lg"
-              >
-                <Send size={20} />
-                {loading ? 'جاري الحفظ...' : 'إرسال'}
-              </button>
-            </div>
-          </motion.div>
-        );
-
-      case 'success':
-        return (
-          <motion.div
-            key="success"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="text-center py-12 md:py-20 bg-white rounded-3xl shadow-2xl border-2 border-green-200 px-4"
-          >
-            <div className="w-20 h-20 md:w-24 md:h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <CheckCircle size={56} />
-            </div>
-            <h2 className="text-2xl md:text-4xl font-black text-green-600 mb-4">تم بنجاح!</h2>
-            <p className="text-gray-600 mb-8 md:mb-10">تم حفظ بيانات المطبقين بنجاح</p>
-            <div className="space-y-3">
-              <button 
-                onClick={() => setState({ ...state, step: 'home', schoolData: DEFAULT_SCHOOL_DATA, students: [] })}
-                className="w-full md:w-auto px-8 py-3 bg-blue-900 text-white rounded-2xl hover:bg-blue-800 transition-all font-black"
-              >
-                العودة للرئيسية
-              </button>
-              <button 
-                onClick={() => setState({ ...state, step: 'school', schoolData: DEFAULT_SCHOOL_DATA, students: [] })}
-                className="w-full md:w-auto px-8 py-3 bg-yellow-400 text-blue-900 rounded-2xl hover:bg-yellow-500 transition-all font-bold ml-0 md:ml-3"
-              >
-                استمارة جديدة
-              </button>
-            </div>
-          </motion.div>
-        );
-
-      case 'admin_login':
-        return (
-          <motion.div
-            key="admin_login"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-md mx-auto bg-white p-6 md:p-8 rounded-3xl shadow-2xl border-2 border-blue-50"
-          >
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Lock size={32} />
-              </div>
-              <h2 className="text-2xl font-black text-blue-900">دخول الإدارة</h2>
-              <p className="text-gray-500 text-sm mt-2">أدخل بيانات اعتمادك</p>
-            </div>
-
-            <form onSubmit={handleAdminLogin} className="space-y-4">
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-gray-600">المستخدم</label>
-                <input
-                  required
-                  type="text"
-                  value={loginForm.user}
-                  onChange={e => setLoginForm(prev => ({ ...prev, user: e.target.value }))}
-                  className="w-full p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-base"
-                  placeholder="اسم المستخدم"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-gray-600">المرور</label>
-                <div className="relative">
-                  <input
-                    required
-                    type={showPass ? "text" : "password"}
-                    value={loginForm.pass}
-                    onChange={e => setLoginForm(prev => ({ ...prev, pass: e.target.value }))}
-                    className="w-full p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-base"
-                    placeholder="كلمة المرور"
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-500 transition-colors"
-                  >
-                    {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-              </div>
-
-              <button type="submit" className="w-full py-3 md:py-4 bg-blue-900 text-white rounded-2xl font-black hover:bg-blue-800 transition-all shadow-lg">
-                دخول
-              </button>
-
-              <button 
-                type="button"
-                onClick={() => setState(prev => ({ ...prev, step: 'home' }))}
-                className="w-full text-gray-500 font-bold hover:text-gray-700 transition-colors"
-              >
-                إلغاء
-              </button>
-            </form>
-          </motion.div>
-        );
-
-      case 'admin_panel':
-        if (!isAdmin) return null;
-
-        return (
-          <motion.div
-            key="admin_panel"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-6 pb-10"
-          >
-            {/* Header */}
-            <div className="bg-white p-4 md:p-8 rounded-3xl shadow-xl flex justify-between items-center gap-4 flex-col md:flex-row">
-              <h2 className="text-2xl font-black text-blue-900 flex items-center gap-3">
-                <Settings className="text-yellow-500 w-8 h-8" />
-                لوحة التحكم
-              </h2>
-              <button 
-                onClick={() => { setIsAdmin(false); setState(prev => ({ ...prev, step: 'home' })); }} 
-                className="flex items-center gap-2 text-red-500 font-bold bg-red-50 px-4 md:px-6 py-2 md:py-3 rounded-xl hover:bg-red-100 transition-all"
-              >
-                <LogOut size={18} />
-                خروج
-              </button>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-blue-500">
-                <h3 className="text-gray-500 font-bold mb-2 text-sm">المدارس</h3>
-                <p className="text-4xl font-black text-blue-600">{allSubmissions.length}</p>
-              </div>
-              <div className="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-green-500">
-                <h3 className="text-gray-500 font-bold mb-2 text-sm">المطبقون</h3>
-                <p className="text-4xl font-black text-green-600">
-                  {allSubmissions.reduce((acc, curr) => acc + curr.students.length, 0)}
-                </p>
-              </div>
-              <div className="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-yellow-500">
-                <button 
-                  onClick={() => exportToExcel(allSubmissions)}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-yellow-400 text-blue-900 rounded-xl font-black hover:bg-yellow-500 transition-all"
-                >
-                  <Download size={20} />
-                  تصدير Excel
-                </button>
-              </div>
-            </div>
-
-            {/* Field Settings */}
-            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-lg">
-              <h3 className="text-xl font-black text-blue-900 mb-6 flex items-center gap-2">
-                <Layout size={24} />
-                الحقول المرئية
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {[
-                  { key: 'showSchoolType', label: 'نوع المدرسة' },
-                  { key: 'showSector', label: 'القطاع' },
-                  { key: 'showPrincipalPhone', label: 'هاتف المدير' },
-                  { key: 'showUniversity', label: 'الجامعة' },
-                  { key: 'showCollege', label: 'الكلية' },
-                  { key: 'showStudyType', label: 'نوع الدراسة' },
-                ].map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => toggleField(key as keyof FieldSettings)}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all border border-gray-200"
-                  >
-                    <span className="font-bold text-gray-700 text-sm">{label}</span>
-                    {state.fieldSettings[key as keyof FieldSettings] ? (
-                      <ToggleRight className="text-blue-600" size={32} />
-                    ) : (
-                      <ToggleLeft className="text-gray-300" size={32} />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Submissions Table */}
-            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-lg">
-              <h3 className="text-xl font-black text-blue-900 mb-6">الاستمارات المستلمة</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-right text-sm md:text-base">
-                  <thead>
-                    <tr className="bg-gray-50 border-b-2 border-gray-200">
-                      <th className="p-3 font-bold text-gray-600">التاريخ</th>
-                      <th className="p-3 font-bold text-gray-600">المدرسة</th>
-                      <th className="p-3 font-bold text-gray-600">المدير</th>
-                      <th className="p-3 font-bold text-gray-600">العدد</th>
-                      <th className="p-3 font-bold text-gray-600">حذف</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allSubmissions.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="p-6 text-center text-gray-400 italic">لا توجد بيانات</td>
-                      </tr>
-                    ) : (
-                      allSubmissions.map((sub) => (
-                        <tr key={sub.id} className="border-b hover:bg-gray-50 transition-colors">
-                          <td className="p-3 text-xs md:text-sm">{sub.timestamp}</td>
-                          <td className="p-3 font-bold text-sm md:text-base">{sub.schoolName}</td>
-                          <td className="p-3 text-sm md:text-base">{sub.principalName}</td>
-                          <td className="p-3 font-bold text-blue-600">{sub.students.length}</td>
-                          <td className="p-3 text-center">
-                            <button
-                              onClick={() => deleteSubmission(sub.id)}
-                              className="text-red-400 hover:text-red-600 transition-colors"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Share */}
-            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-lg">
-              <h3 className="text-xl font-black text-blue-900 mb-6">المشاركة</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <button onClick={() => shareData('whatsapp')} className="flex items-center justify-center gap-2 py-3 px-4 bg-green-50 text-green-700 rounded-2xl hover:bg-green-100 transition-all font-bold">
-                  <MessageCircle size={20} />
-                  واتس
-                </button>
-                <button onClick={() => shareData('telegram')} className="flex items-center justify-center gap-2 py-3 px-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all font-bold">
-                  <Share2 size={20} />
-                  تليغرام
-                </button>
-                <button onClick={() => shareData('email')} className="flex items-center justify-center gap-2 py-3 px-4 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-all font-bold">
-                  <Mail size={20} />
-                  بريد
-                </button>
-              </div>
-            </div>
-
-            {/* Account Settings */}
-            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-lg">
-              <h3 className="text-xl font-black text-blue-900 mb-6">إعدادات الحساب</h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <input 
-                    type="text" 
-                    defaultValue={adminUsername}
-                    id="new-user"
-                    placeholder="اسم مستخدم جديد"
-                    className="p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                  <input 
-                    type="password" 
-                    defaultValue={adminPassword}
-                    id="new-pass"
-                    placeholder="كلمة مرور جديدة"
-                    className="p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <button 
-                  onClick={() => {
-                    const u = (document.getElementById('new-user') as HTMLInputElement).value;
-                    const p = (document.getElementById('new-pass') as HTMLInputElement).value;
-                    if (u && p) updateAdminCredentials(u, p);
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-blue-900 text-white rounded-2xl font-bold hover:bg-blue-800 transition-all"
-                >
-                  <Save size={20} />
-                  حفظ
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        );
-
-      case 'about':
-        return (
-          <motion.div
-            key="about"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="bg-white p-6 md:p-10 rounded-3xl shadow-2xl space-y-6 pb-10"
-          >
-            <h2 className="text-2xl md:text-3xl font-black text-blue-900">من نحن</h2>
-            <div className="space-y-4 text-gray-700 leading-relaxed">
-              <p>
-                نحن قسم الاعداد والتدريب في مديرية تربية المثنى، نعمل على تطوير وتدريب المعلمين والمع��مات في المحافظة.
-              </p>
-              <p>
-                هذا النظام الإلكتروني تم تطويره لتسهيل عملية متابعة المطبقين والمطبقات من الجامعات المختلفة خلال فترة التطبيق الميداني.
-              </p>
-              <h3 className="font-bold text-lg pt-4">المميزات:</h3>
-              <ul className="list-disc list-inside space-y-2">
-                <li>إدارة بيانات المطبقين بسهولة</li>
-                <li>تصدير البيانات إلى ملفات Excel</li>
-                <li>نظام إدارة شامل للمدارس والقطاعات</li>
-                <li>حفظ آمن للبيانات محلياً</li>
-                <li>واجهة سهلة الاستخدام على جميع الأجهزة</li>
-              </ul>
-            </div>
-          </motion.div>
-        );
-
-      case 'contact':
-        return (
-          <motion.div
-            key="contact"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="bg-white p-6 md:p-10 rounded-3xl shadow-2xl space-y-6 pb-10"
-          >
-            <h2 className="text-2xl md:text-3xl font-black text-blue-900">اتصل بنا</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-start gap-4">
-                  <Phone className="text-blue-600 flex-shrink-0 mt-1" size={24} />
-                  <div>
-                    <h3 className="font-bold text-gray-900">الهاتف</h3>
-                    <p className="text-gray-600 text-sm">07XXXXXXXXX</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <Mail className="text-blue-600 flex-shrink-0 mt-1" size={24} />
-                  <div>
-                    <h3 className="font-bold text-gray-900">البريد</h3>
-                    <p className="text-gray-600 text-sm">muthanna.edu@gov.iq</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200">
-                <h3 className="font-bold text-blue-900 mb-3">ساعات العمل</h3>
-                <p className="text-gray-700 text-sm">السبت - الخميس: 08:00 - 14:00</p>
-                <p className="text-gray-700 text-sm">الجمعة والعطل الرسمية: مغلق</p>
-              </div>
-            </div>
-          </motion.div>
-        );
-
-      default:
-        return null;
+  const shareData = async (platform: string) => {
+    if (allSubmissions.length === 0) {
+      alert('لا توجد بيانات للمشاركة');
+      return;
     }
+
+    const blob = generateExcelBlob(allSubmissions);
+    const file = new File([blob], "تقرير_المطبقين_تراكمي.xlsx", { type: blob.type });
+    const text = `تقرير المطبقين - مديرية تربية المثنى\nعدد الاستمارات: ${allSubmissions.length}`;
+
+    // Try to use Web Share API for file sharing (works best on mobile)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'تقرير المطبقين',
+          text: text,
+        });
+        return;
+      } catch (error) {
+        console.error('Error sharing file:', error);
+      }
+    }
+
+    // Fallback to text-only sharing if file sharing is not supported
+    if (platform === 'whatsapp') {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text + "\nيرجى إرفاق ملف التقرير يدوياً بعد تحميله.")}`, '_blank');
+    } else if (platform === 'telegram') {
+      window.open(`https://t.me/share/url?url=${window.location.href}&text=${encodeURIComponent(text + "\nيرجى إرفاق ملف التقرير يدوياً بعد تحميله.")}`, '_blank');
+    } else if (platform === 'email') {
+      window.open(`mailto:?subject=تقرير المطبقين&body=${encodeURIComponent(text + "\nيرجى إرفاق ملف التقرير يدوياً بعد تحميله.")}`, '_blank');
+    }
+    
+    alert('متصفحك لا يدعم مشاركة الملفات مباشرة. سيتم فتح التطبيق لمشاركة النص، يرجى تحميل ملف Excel وإرفاقه يدوياً.');
+  };
+
+  const updateLogo = (url: string) => {
+    setState(prev => ({ ...prev, logoUrl: url }));
+    localStorage.setItem('logoUrl', url);
+    alert('تم تحديث الشعار بنجاح');
   };
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-right flex flex-col" dir="rtl">
-      <Header />
-      <Navigation 
-        activeTab={state.step} 
-        onTabChange={(tab) => setState(prev => ({ ...prev, step: tab }))}
-        isMobileOpen={isMobileOpen}
-        setIsMobileOpen={setIsMobileOpen}
-      />
+      <Header logoUrl={state.logoUrl} />
+      <Navbar activeTab={state.step} onTabChange={(tab) => {
+        if (tab === 'home' || tab === 'school') setState(prev => ({ ...prev, step: 'school' }));
+        else if (tab === 'about') setState(prev => ({ ...prev, step: 'about' }));
+        else if (tab === 'contact') setState(prev => ({ ...prev, step: 'contact' }));
+      }} />
 
-      <main className="flex-grow w-full max-w-6xl mx-auto p-4 md:p-8 md:w-full">
+      <main className="flex-grow max-w-6xl mx-auto p-4 md:p-8 w-full">
         <AnimatePresence mode="wait">
-          {renderPage()}
+          {state.step === 'school' && (
+            <motion.div
+              key="school"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="bg-white p-6 md:p-10 rounded-3xl shadow-2xl border border-blue-50"
+            >
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-2 h-8 bg-yellow-400 rounded-full"></div>
+                <h2 className="text-2xl md:text-3xl font-bold text-blue-900">معلومات المدرسة</h2>
+              </div>
+
+              <form onSubmit={handleSchoolSubmit} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-600 mr-1">اسم المدرسة</label>
+                    <input
+                      required
+                      type="text"
+                      value={state.schoolData.schoolName}
+                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, schoolName: e.target.value } }))}
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
+                      placeholder="أدخل اسم المدرسة الكامل"
+                    />
+                  </div>
+
+                  {state.fieldSettings.showSchoolType && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-600 mr-1">نوع المدرسة</label>
+                      <select
+                        value={state.schoolData.schoolType}
+                        onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, schoolType: e.target.value } }))}
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
+                      >
+                        {SCHOOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-600 mr-1">اسم مدير المدرسة</label>
+                    <input
+                      required
+                      type="text"
+                      value={state.schoolData.principalName}
+                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, principalName: e.target.value } }))}
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
+                      placeholder="الاسم الثلاثي للمدير"
+                    />
+                  </div>
+
+                  {state.fieldSettings.showPrincipalPhone && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-600 mr-1">رقم هاتف المدير (11 رقم)</label>
+                      <input
+                        required
+                        type="tel"
+                        maxLength={11}
+                        pattern="\d{11}"
+                        value={state.schoolData.principalPhone}
+                        onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, principalPhone: e.target.value } }))}
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
+                        placeholder="07XXXXXXXXX"
+                      />
+                    </div>
+                  )}
+
+                  {state.fieldSettings.showSector && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-600 mr-1">القطاع</label>
+                      <select
+                        value={state.schoolData.sector}
+                        onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, sector: e.target.value } }))}
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
+                      >
+                        {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-600 mr-1">عدد المطبقين</label>
+                    <select
+                      value={state.schoolData.studentCount}
+                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, studentCount: parseInt(e.target.value) } }))}
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
+                    >
+                      {Array.from({ length: 24 }).map((_, i) => (
+                        <option key={i + 1} value={i + 1}>{i + 1}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row flex-wrap gap-4 pt-8 justify-center">
+                  <button type="button" onClick={() => alert('تم التأكد من صحة المعلومات')} className="flex items-center justify-center gap-2 px-6 py-4 bg-gray-100 text-gray-700 rounded-2xl hover:bg-gray-200 transition-all font-bold w-full md:w-auto">
+                    <CheckCircle size={22} />
+                    تأكد من المعلومات
+                  </button>
+                  <button type="button" className="flex items-center justify-center gap-2 px-6 py-4 bg-blue-50 text-blue-700 rounded-2xl hover:bg-blue-100 transition-all font-bold w-full md:w-auto">
+                    <UserCheck size={22} />
+                    المطبقون من داخل المحافظة
+                  </button>
+                  <button type="button" onClick={() => window.open('https://forms.gle/f2ifvaidNdcQf5es6', '_blank')} className="flex items-center justify-center gap-2 px-6 py-4 bg-blue-50 text-blue-700 rounded-2xl hover:bg-blue-100 transition-all font-bold w-full md:w-auto">
+                    <UserPlus size={22} />
+                    المطبقون من خارج المحافظة
+                  </button>
+                  <button type="submit" className="flex items-center justify-center gap-2 px-10 py-4 bg-yellow-400 text-blue-900 rounded-2xl hover:bg-yellow-500 hover:scale-105 transition-all font-black shadow-xl w-full md:w-auto">
+                    <Send size={22} />
+                    الارسال
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+
+          {state.step === 'students' && (
+            <motion.div
+              key="students"
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -100 }}
+              className="space-y-8"
+            >
+              <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="text-center md:text-right">
+                  <h2 className="text-2xl font-bold">بيانات المطبقين</h2>
+                  <p className="text-blue-200 mt-1">المدرسة: {state.schoolData.schoolName} ({state.schoolData.schoolType})</p>
+                </div>
+                <button 
+                  onClick={() => setState(prev => ({ ...prev, step: 'school' }))}
+                  className="bg-white/10 backdrop-blur-md px-6 py-2 rounded-xl hover:bg-white/20 transition-all border border-white/20"
+                >
+                  تعديل معلومات المدرسة
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {state.students.map((student, index) => (
+                  <motion.div 
+                    key={student.id} 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="bg-white p-6 md:p-8 rounded-3xl shadow-lg border border-gray-100 relative group"
+                  >
+                    <div className="absolute top-0 right-0 w-2 h-full bg-blue-600 rounded-r-3xl"></div>
+                    <div className="flex justify-between items-center mb-6">
+                      <span className="bg-blue-100 text-blue-800 px-4 py-1 rounded-full text-sm font-bold">مطبق رقم {index + 1}</span>
+                      {state.students.length > 1 && (
+                        <button onClick={() => removeStudent(student.id)} className="text-red-400 hover:text-red-600 p-2 transition-colors">
+                          <Trash2 size={22} />
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-wider">اسم الطالب</label>
+                        <input
+                          type="text"
+                          value={student.name}
+                          onChange={e => updateStudent(student.id, 'name', e.target.value)}
+                          className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="الاسم الكامل للطالب"
+                        />
+                      </div>
+                      
+                      {state.fieldSettings.showUniversity && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">الجامعة</label>
+                          <select
+                            value={student.university}
+                            onChange={e => updateStudent(student.id, 'university', e.target.value)}
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          >
+                            {UNIVERSITIES.map(u => <option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </div>
+                      )}
+
+                      {state.fieldSettings.showCollege && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">الكلية</label>
+                          <select
+                            value={student.college}
+                            onChange={e => updateStudent(student.id, 'college', e.target.value)}
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          >
+                            {COLLEGES.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-wider">القسم</label>
+                        <input
+                          type="text"
+                          value={student.department}
+                          onChange={e => updateStudent(student.id, 'department', e.target.value)}
+                          className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="القسم الدراسي"
+                        />
+                      </div>
+
+                      {state.fieldSettings.showStudyType && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">نوع الدراسة</label>
+                          <select
+                            value={student.studyType}
+                            onChange={e => updateStudent(student.id, 'studyType', e.target.value as any)}
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          >
+                            <option value="صباحي">صباحي</option>
+                            <option value="مسائي">مسائي</option>
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-wider">تاريخ المباشرة</label>
+                        <input
+                          type="date"
+                          value={student.startDate}
+                          onChange={e => updateStudent(student.id, 'startDate', e.target.value)}
+                          className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-wider">تاريخ الانفكاك</label>
+                        <input
+                          type="date"
+                          value={student.releaseDate}
+                          onChange={e => updateStudent(student.id, 'releaseDate', e.target.value)}
+                          className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              <div className="flex flex-col md:flex-row flex-wrap gap-4 justify-center pt-10">
+                <button onClick={addStudent} className="flex items-center justify-center gap-2 px-8 py-4 bg-green-500 text-white rounded-2xl hover:bg-green-600 transition-all font-bold shadow-lg w-full md:w-auto">
+                  <Plus size={22} />
+                  اضافة مطبق
+                </button>
+                <button onClick={() => window.open('https://forms.gle/f2ifvaidNdcQf5es6', '_blank')} className="flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all font-bold shadow-lg w-full md:w-auto">
+                  <UserPlus size={22} />
+                  المطبقون من خارج المحافظة
+                </button>
+                <button onClick={handleFinalSubmit} className="flex items-center justify-center gap-2 px-12 py-4 bg-yellow-400 text-blue-900 rounded-2xl hover:bg-yellow-500 hover:scale-105 transition-all font-black shadow-2xl w-full md:w-auto">
+                  <Send size={22} />
+                  ارسال المعلومات النهائية
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {state.step === 'success' && (
+            <motion.div
+              key="success"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="text-center py-20 bg-white rounded-3xl shadow-xl border border-green-50"
+            >
+              <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle size={64} />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-black text-blue-900 mb-4">تم الارسال بنجاح!</h2>
+              <p className="text-gray-500 text-lg mb-10">تم استلام بيانات المطبقين وحفظها في قاعدة البيانات المركزية.</p>
+              <button 
+                onClick={() => setState({ ...state, step: 'school', schoolData: DEFAULT_SCHOOL_DATA, students: [] })}
+                className="px-12 py-4 bg-blue-900 text-white rounded-2xl hover:bg-blue-800 transition-all font-bold shadow-lg"
+              >
+                العودة للرئيسية
+              </button>
+            </motion.div>
+          )}
+
+          {state.step === 'about' && (
+            <motion.div
+              key="about"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-8 rounded-3xl shadow-xl border border-blue-50"
+            >
+              <h2 className="text-3xl font-black text-blue-900 mb-6 border-r-8 border-yellow-400 pr-4">من نحن</h2>
+              <div className="space-y-6 text-lg text-gray-700 leading-relaxed">
+                <p className="font-bold text-xl text-blue-800">قسم الاعداد والتدريب - مديرية تربية المثنى</p>
+                <p>احد اقسام المديرية العامة للتربية يتكون القسم من الشعب التالية:</p>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 list-none">
+                  {[
+                    "1 - شعبة التدريب",
+                    "2- شعبة المعاهد",
+                    "3 - شعبة البحوث والدراسات",
+                    "4 - شعبة الاشغال اليدوية",
+                    "5 - وحدة اللغة العربية",
+                    "6- معهد الفنون الجميلة للبنين",
+                    "7- معهد الفنون الجميلة للبنات"
+                  ].map((item, i) => (
+                    <li key={i} className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-center gap-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </motion.div>
+          )}
+
+          {state.step === 'contact' && (
+            <motion.div
+              key="contact"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-8 rounded-3xl shadow-xl border border-blue-50"
+            >
+              <h2 className="text-3xl font-black text-blue-900 mb-6 border-r-8 border-blue-500 pr-4">اتصل بنا</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div className="flex items-start gap-4">
+                    <div className="bg-blue-100 p-3 rounded-2xl text-blue-600">
+                      <School size={24} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-500">العنوان</h4>
+                      <p className="text-lg font-bold">مديرية تربية المثنى - قسم الاعداد والتدريب</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-4">
+                    <div className="bg-green-100 p-3 rounded-2xl text-green-600">
+                      <Phone size={24} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-500">الهاتف</h4>
+                      <p className="text-lg font-bold" dir="ltr">+964 781 753 3993</p>
+                      <p className="text-sm text-gray-400">واتس اب + تيليغرام بنفس الرقم</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="bg-red-100 p-3 rounded-2xl text-red-600">
+                      <Mail size={24} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-500">البريد الإلكتروني</h4>
+                      <p className="text-lg font-bold">mobadra2019@gmail.com</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 flex flex-col items-center justify-center text-center space-y-4">
+                  <h4 className="font-bold text-blue-900">تابعنا على مواقع التواصل</h4>
+                  <div className="flex gap-4">
+                    <a href="https://www.facebook.com/profile.php?id=61560094628032" target="_blank" rel="noreferrer" className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform">
+                      <Facebook size={24} />
+                    </a>
+                    <a href="https://www.tiktok.com/@aadad_offical" target="_blank" rel="noreferrer" className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform">
+                      <Music size={24} />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {state.step === 'admin_login' && (
+            <motion.div
+              key="admin_login"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-md mx-auto bg-white p-8 rounded-3xl shadow-2xl border border-blue-50"
+            >
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Lock size={32} />
+                </div>
+                <h2 className="text-2xl font-black text-blue-900">تسجيل دخول الإدارة</h2>
+                <p className="text-gray-500">يرجى إدخال بيانات الاعتماد للوصول للوحة التحكم</p>
+              </div>
+
+              <form onSubmit={handleAdminLogin} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-600">اسم المستخدم</label>
+                  <input
+                    required
+                    type="text"
+                    value={loginForm.user}
+                    onChange={e => setLoginForm(prev => ({ ...prev, user: e.target.value }))}
+                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="Username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-600">كلمة المرور</label>
+                  <div className="relative">
+                    <input
+                      required
+                      type={showPass ? "text" : "password"}
+                      value={loginForm.pass}
+                      onChange={e => setLoginForm(prev => ({ ...prev, pass: e.target.value }))}
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Password"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPass(!showPass)}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-500"
+                    >
+                      {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+                <button type="submit" className="w-full py-4 bg-blue-900 text-white rounded-2xl font-black hover:bg-blue-800 transition-all shadow-lg">
+                  دخول
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setState(prev => ({ ...prev, step: 'school' }))}
+                  className="w-full text-gray-400 font-bold hover:text-gray-600 mt-4"
+                >
+                  إلغاء
+                </button>
+              </form>
+            </motion.div>
+          )}
+
+          {state.step === 'admin_panel' && isAdmin && (
+            <motion.div
+              key="admin_panel"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-8"
+            >
+              <div className="flex flex-col md:flex-row justify-between items-center bg-white p-8 rounded-3xl shadow-xl gap-4">
+                <h2 className="text-2xl font-black text-blue-900 flex items-center gap-3">
+                  <Settings className="text-yellow-500 w-8 h-8" />
+                  لوحة تحكم النظام
+                </h2>
+                <button onClick={() => { setIsAdmin(false); setState(prev => ({ ...prev, step: 'school' })); }} className="flex items-center gap-2 text-red-500 font-bold bg-red-50 px-6 py-2 rounded-xl hover:bg-red-100 transition-all">
+                  <LogOut size={20} />
+                  تسجيل الخروج
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-blue-500">
+                  <h3 className="font-bold text-gray-400 mb-2">إجمالي المدارس</h3>
+                  <p className="text-5xl font-black text-blue-900">{allSubmissions.length}</p>
+                </div>
+                <div className="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-green-500">
+                  <h3 className="font-bold text-gray-400 mb-2">إجمالي المطبقين</h3>
+                  <p className="text-5xl font-black text-green-600">
+                    {allSubmissions.reduce((acc, curr) => acc + curr.students.length, 0)}
+                  </p>
+                </div>
+                <div className="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-yellow-500 flex flex-col justify-center">
+                  <button 
+                    onClick={() => exportToExcel(allSubmissions)}
+                    className="w-full flex items-center justify-center gap-3 py-4 bg-yellow-400 text-blue-900 rounded-2xl font-black hover:bg-yellow-500 transition-all shadow-md"
+                  >
+                    <Download size={24} />
+                    تصدير ملف Excel تراكمي
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-3xl shadow-lg">
+                <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-blue-500 pr-3 flex items-center gap-2">
+                  <Layout size={24} />
+                  إدارة الحقول والأيقونات
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                  {Object.entries(state.fieldSettings).map(([key, value]) => (
+                    <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                      <span className="font-bold text-gray-700">
+                        {key === 'showSchoolType' && 'حقل نوع المدرسة'}
+                        {key === 'showSector' && 'حقل القطاع'}
+                        {key === 'showPrincipalPhone' && 'حقل هاتف المدير'}
+                        {key === 'showUniversity' && 'حقل الجامعة'}
+                        {key === 'showCollege' && 'حقل الكلية'}
+                        {key === 'showStudyType' && 'حقل نوع الدراسة'}
+                      </span>
+                      <button 
+                        onClick={() => toggleField(key as keyof FieldSettings)}
+                        className={`transition-colors ${value ? 'text-blue-600' : 'text-gray-300'}`}
+                      >
+                        {value ? <ToggleRight size={40} /> : <ToggleLeft size={40} />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-3xl shadow-lg">
+                <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-blue-500 pr-3">الاستمارات المستلمة</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b">
+                        <th className="p-4 font-bold text-gray-600">التاريخ</th>
+                        <th className="p-4 font-bold text-gray-600">المدرسة</th>
+                        <th className="p-4 font-bold text-gray-600">المدير</th>
+                        <th className="p-4 font-bold text-gray-600">العدد</th>
+                        <th className="p-4 font-bold text-gray-600">إجراءات</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allSubmissions.map((sub) => (
+                        <tr key={sub.id} className="border-b hover:bg-gray-50 transition-colors">
+                          <td className="p-4 text-sm">{sub.timestamp}</td>
+                          <td className="p-4 font-bold">{sub.schoolName}</td>
+                          <td className="p-4">{sub.principalName}</td>
+                          <td className="p-4 font-bold text-blue-600">{sub.students.length}</td>
+                          <td className="p-4">
+                            <button onClick={() => deleteSubmission(sub.id)} className="text-red-400 hover:text-red-600">
+                              <Trash2 size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {allSubmissions.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="p-10 text-center text-gray-400 italic">لا توجد استمارات مستلمة بعد</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-3xl shadow-lg">
+                <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-green-500 pr-3">مشاركة التقارير</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <button onClick={() => shareData('whatsapp')} className="flex items-center justify-center gap-3 p-4 bg-green-50 text-green-700 rounded-2xl hover:bg-green-100 transition-all font-bold">
+                    <MessageCircle size={24} />
+                    واتساب
+                  </button>
+                  <button onClick={() => shareData('telegram')} className="flex items-center justify-center gap-3 p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all font-bold">
+                    <Share2 size={24} />
+                    تيليغرام
+                  </button>
+                  <button onClick={() => shareData('email')} className="flex items-center justify-center gap-3 p-4 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-all font-bold">
+                    <Mail size={24} />
+                    البريد الإلكتروني
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-3xl shadow-lg">
+                <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-yellow-500 pr-3">إعدادات الحساب والشعار</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500">رابط الشعار الجديد (URL)</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        defaultValue={state.logoUrl}
+                        id="new-logo"
+                        className="flex-grow p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                      <button 
+                        onClick={() => {
+                          const l = (document.getElementById('new-logo') as HTMLInputElement).value;
+                          if (l) updateLogo(l);
+                        }}
+                        className="px-6 bg-blue-900 text-white rounded-2xl font-bold hover:bg-blue-800"
+                      >
+                        تحديث
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500">اسم المستخدم الجديد</label>
+                    <input 
+                      type="text" 
+                      defaultValue={adminUsername}
+                      id="new-user"
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500">كلمة المرور الجديدة</label>
+                    <input 
+                      type="password" 
+                      defaultValue={adminPassword}
+                      id="new-pass"
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const u = (document.getElementById('new-user') as HTMLInputElement).value;
+                      const p = (document.getElementById('new-pass') as HTMLInputElement).value;
+                      if (u && p) updateAdminCredentials(u, p);
+                    }}
+                    className="md:col-span-2 flex items-center justify-center gap-2 py-4 bg-blue-900 text-white rounded-2xl font-bold hover:bg-blue-800 transition-all shadow-md"
+                  >
+                    <Save size={20} />
+                    حفظ بيانات الدخول
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
-      {/* Footer */}
-      <footer className="mt-auto bg-white border-t-2 border-gray-100 p-4 md:p-8 text-center space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div>
-            <p className="text-gray-600 font-bold text-sm md:text-base">مديرية تربية المثنى</p>
-            <p className="text-blue-600 font-black text-xs md:text-sm mt-1">نظام الانفكاك الإلكتروني</p>
+      <footer className="mt-auto bg-white border-t p-8 text-center">
+        <div className="max-w-7xl mx-auto space-y-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="text-center md:text-right">
+              <p className="text-gray-600 font-bold">مديرية تربية المثنى - قسم الاعداد والتدريب</p>
+              <p className="text-blue-600 font-black text-lg mt-1">
+                ( تصميم م.م صفاء هادي عبد العالي مدير قسم الاعداد والتدريب )
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <a href="https://www.facebook.com/profile.php?id=61560094628032" target="_blank" rel="noreferrer" className="text-blue-600 hover:scale-110 transition-transform">
+                <Facebook size={24} />
+              </a>
+              <a href="https://www.tiktok.com/@aadad_offical" target="_blank" rel="noreferrer" className="text-black hover:scale-110 transition-transform">
+                <Music size={24} />
+              </a>
+              <button 
+                onClick={() => {
+                  if (isAdmin) setState(prev => ({ ...prev, step: 'admin_panel' }));
+                  else setState(prev => ({ ...prev, step: 'admin_login' }));
+                }} 
+                className="flex items-center gap-2 bg-blue-50 text-blue-700 px-6 py-2 rounded-xl hover:bg-blue-100 transition-all font-bold"
+              >
+                <ShieldCheck size={18} />
+                لوحة التحكم
+              </button>
+            </div>
           </div>
-          <button 
-            onClick={() => {
-              if (isAdmin) setState(prev => ({ ...prev, step: 'admin_panel' }));
-              else setState(prev => ({ ...prev, step: 'admin_login' }));
-            }} 
-            className="flex items-center gap-2 bg-blue-50 text-blue-700 px-4 md:px-6 py-2 md:py-3 rounded-xl hover:bg-blue-100 transition-all font-bold text-sm md:text-base"
-          >
-            <ShieldCheck size={18} />
-            إدارة
-          </button>
+          <div className="pt-4 border-t border-gray-100 text-gray-400 text-sm">
+            جميع الحقوق محفوظة © 2026 - نظام استمارة الانفكاك الإلكتروني
+          </div>
         </div>
-        <p className="text-gray-400 text-xs border-t pt-4">جميع الحقوق محفوظة © 2026</p>
       </footer>
     </div>
   );
