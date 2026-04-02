@@ -19,7 +19,14 @@ import {
   MessageCircle,
   ShieldCheck,
   Menu,
-  X
+  X,
+  Lock,
+  Eye,
+  EyeOff,
+  Save,
+  Layout,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
@@ -45,10 +52,20 @@ interface SchoolData {
   studentCount: number;
 }
 
+interface FieldSettings {
+  showSchoolType: boolean;
+  showSector: boolean;
+  showPrincipalPhone: boolean;
+  showUniversity: boolean;
+  showCollege: boolean;
+  showStudyType: boolean;
+}
+
 interface AppState {
-  step: 'school' | 'students' | 'admin' | 'success';
+  step: 'school' | 'students' | 'admin_login' | 'admin_panel' | 'success';
   schoolData: SchoolData;
   students: Student[];
+  fieldSettings: FieldSettings;
 }
 
 // --- Constants ---
@@ -66,12 +83,21 @@ const DEFAULT_SCHOOL_DATA: SchoolData = {
   studentCount: 1,
 };
 
+const DEFAULT_FIELD_SETTINGS: FieldSettings = {
+  showSchoolType: true,
+  showSector: true,
+  showPrincipalPhone: true,
+  showUniversity: true,
+  showCollege: true,
+  showStudyType: true,
+};
+
 // --- Components ---
 
 const Header = () => (
   <header className="bg-white border-b-2 border-blue-100 p-4 shadow-sm">
-    <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-      <div className="text-center md:text-right flex-1 order-2 md:order-1">
+    <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-right">
+      <div className="flex-1 order-2 md:order-1">
         <h1 className="text-xl font-bold text-blue-900">وزارة التربية</h1>
         <p className="text-blue-700 font-medium">مديرية تربية المثنى</p>
       </div>
@@ -80,12 +106,12 @@ const Header = () => (
         <img 
           src="https://picsum.photos/seed/iraq-edu-logo/200/200" 
           alt="شعار قسم الاعداد والتدريب" 
-          className="w-28 h-28 md:w-32 md:h-32 object-contain rounded-2xl border-4 border-blue-50 shadow-lg"
+          className="w-24 h-24 md:w-32 md:h-32 object-contain rounded-2xl border-4 border-blue-50 shadow-lg"
           referrerPolicy="no-referrer"
         />
       </div>
 
-      <div className="text-center md:text-left flex-1 order-3">
+      <div className="flex-1 order-3 text-center md:text-left">
         <h1 className="text-xl font-bold text-blue-900">قسم الاعداد والتدريب</h1>
         <p className="text-blue-700 font-medium">شعبة المعاهد</p>
       </div>
@@ -110,13 +136,13 @@ const Navbar = ({ activeTab, onTabChange }: { activeTab: string, onTabChange: (t
     <nav className="bg-blue-900 text-white sticky top-0 z-50 shadow-lg">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16 md:hidden">
-          <span className="font-bold">القائمة</span>
-          <button onClick={() => setIsOpen(!isOpen)} className="p-2">
+          <span className="font-bold">استمارة الانفكاك</span>
+          <button onClick={() => setIsOpen(!isOpen)} className="p-2 bg-blue-800 rounded-lg">
             {isOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
 
-        <div className={`${isOpen ? 'block' : 'hidden'} md:flex md:flex-row flex-col whitespace-nowrap overflow-x-auto scrollbar-hide`}>
+        <div className={`${isOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row whitespace-nowrap overflow-x-auto scrollbar-hide py-2 md:py-0`}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -143,23 +169,33 @@ export default function App() {
     step: 'school',
     schoolData: DEFAULT_SCHOOL_DATA,
     students: [],
+    fieldSettings: DEFAULT_FIELD_SETTINGS,
   });
 
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminUsername, setAdminUsername] = useState('admin');
   const [adminPassword, setAdminPassword] = useState('admin123');
+  const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
+  const [showPass, setShowPass] = useState(false);
   const [allSubmissions, setAllSubmissions] = useState<any[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('submissions');
-    if (saved) setAllSubmissions(JSON.parse(saved));
+    const savedSubmissions = localStorage.getItem('submissions');
+    if (savedSubmissions) setAllSubmissions(JSON.parse(savedSubmissions));
     
     const savedPass = localStorage.getItem('adminPassword');
     if (savedPass) setAdminPassword(savedPass);
+
+    const savedUser = localStorage.getItem('adminUsername');
+    if (savedUser) setAdminUsername(savedUser);
+
+    const savedSettings = localStorage.getItem('fieldSettings');
+    if (savedSettings) setState(prev => ({ ...prev, fieldSettings: JSON.parse(savedSettings) }));
   }, []);
 
   const handleSchoolSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (state.schoolData.principalPhone.length !== 11) {
+    if (state.schoolData.principalPhone.length !== 11 && state.fieldSettings.showPrincipalPhone) {
       alert('رقم الهاتف يجب أن يكون 11 رقماً');
       return;
     }
@@ -214,7 +250,8 @@ export default function App() {
     const newSubmission = {
       ...state.schoolData,
       students: state.students,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString('ar-IQ'),
+      id: Date.now()
     };
     const updated = [...allSubmissions, newSubmission];
     setAllSubmissions(updated);
@@ -224,8 +261,13 @@ export default function App() {
   };
 
   const exportToExcel = (data: any[]) => {
+    if (data.length === 0) {
+      alert('لا توجد بيانات لتصديرها');
+      return;
+    }
     const flattened = data.flatMap(sub => 
       sub.students.map((s: any) => ({
+        'تاريخ الارسال': sub.timestamp,
         'اسم المدرسة': sub.schoolName,
         'نوع المدرسة': sub.schoolType,
         'مدير المدرسة': sub.principalName,
@@ -244,17 +286,50 @@ export default function App() {
     const ws = XLSX.utils.json_to_sheet(flattened);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "المطبقون");
-    XLSX.writeFile(wb, "تقرير_المطبقين_تربية_المثنى.xlsx");
+    XLSX.writeFile(wb, "تقرير_المطبقين_المثنى_تراكمي.xlsx");
   };
 
-  const handleAdminLogin = () => {
-    const user = prompt('اسم المستخدم:');
-    const pass = prompt('كلمة المرور:');
-    if (user === 'admin' && pass === adminPassword) {
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginForm.user === adminUsername && loginForm.pass === adminPassword) {
       setIsAdmin(true);
-      setState(prev => ({ ...prev, step: 'admin' }));
+      setState(prev => ({ ...prev, step: 'admin_panel' }));
+      setLoginForm({ user: '', pass: '' });
     } else {
       alert('خطأ في اسم المستخدم أو كلمة المرور');
+    }
+  };
+
+  const updateAdminCredentials = (newUser: string, newPass: string) => {
+    setAdminUsername(newUser);
+    setAdminPassword(newPass);
+    localStorage.setItem('adminUsername', newUser);
+    localStorage.setItem('adminPassword', newPass);
+    alert('تم تحديث بيانات الدخول بنجاح');
+  };
+
+  const toggleField = (field: keyof FieldSettings) => {
+    const newSettings = { ...state.fieldSettings, [field]: !state.fieldSettings[field] };
+    setState(prev => ({ ...prev, fieldSettings: newSettings }));
+    localStorage.setItem('fieldSettings', JSON.stringify(newSettings));
+  };
+
+  const deleteSubmission = (id: number) => {
+    if (confirm('هل أنت متأكد من حذف هذه الاستمارة؟')) {
+      const updated = allSubmissions.filter(s => s.id !== id);
+      setAllSubmissions(updated);
+      localStorage.setItem('submissions', JSON.stringify(updated));
+    }
+  };
+
+  const shareData = (platform: string) => {
+    const text = `تقرير المطبقين - مديرية تربية المثنى\nعدد الاستمارات: ${allSubmissions.length}`;
+    if (platform === 'whatsapp') {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    } else if (platform === 'telegram') {
+      window.open(`https://t.me/share/url?url=${window.location.href}&text=${encodeURIComponent(text)}`, '_blank');
+    } else if (platform === 'email') {
+      window.open(`mailto:?subject=تقرير المطبقين&body=${encodeURIComponent(text)}`, '_blank');
     }
   };
 
@@ -265,14 +340,14 @@ export default function App() {
         if (tab === 'home' || tab === 'school') setState(prev => ({ ...prev, step: 'school' }));
       }} />
 
-      <main className="flex-grow max-w-5xl mx-auto p-4 md:p-8 w-full">
+      <main className="flex-grow max-w-6xl mx-auto p-4 md:p-8 w-full">
         <AnimatePresence mode="wait">
           {state.step === 'school' && (
             <motion.div
               key="school"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
               className="bg-white p-6 md:p-10 rounded-3xl shadow-2xl border border-blue-50"
             >
               <div className="flex items-center gap-3 mb-8">
@@ -294,16 +369,18 @@ export default function App() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600 mr-1">نوع المدرسة</label>
-                    <select
-                      value={state.schoolData.schoolType}
-                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, schoolType: e.target.value } }))}
-                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
-                    >
-                      {SCHOOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
+                  {state.fieldSettings.showSchoolType && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-600 mr-1">نوع المدرسة</label>
+                      <select
+                        value={state.schoolData.schoolType}
+                        onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, schoolType: e.target.value } }))}
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
+                      >
+                        {SCHOOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-600 mr-1">اسم مدير المدرسة</label>
@@ -317,30 +394,34 @@ export default function App() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600 mr-1">رقم هاتف المدير (11 رقم)</label>
-                    <input
-                      required
-                      type="tel"
-                      maxLength={11}
-                      pattern="\d{11}"
-                      value={state.schoolData.principalPhone}
-                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, principalPhone: e.target.value } }))}
-                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
-                      placeholder="07XXXXXXXXX"
-                    />
-                  </div>
+                  {state.fieldSettings.showPrincipalPhone && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-600 mr-1">رقم هاتف المدير (11 رقم)</label>
+                      <input
+                        required
+                        type="tel"
+                        maxLength={11}
+                        pattern="\d{11}"
+                        value={state.schoolData.principalPhone}
+                        onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, principalPhone: e.target.value } }))}
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
+                        placeholder="07XXXXXXXXX"
+                      />
+                    </div>
+                  )}
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600 mr-1">القطاع</label>
-                    <select
-                      value={state.schoolData.sector}
-                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, sector: e.target.value } }))}
-                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
-                    >
-                      {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
+                  {state.fieldSettings.showSector && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-600 mr-1">القطاع</label>
+                      <select
+                        value={state.schoolData.sector}
+                        onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, sector: e.target.value } }))}
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
+                      >
+                        {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-600 mr-1">عدد المطبقين</label>
@@ -429,26 +510,33 @@ export default function App() {
                           placeholder="الاسم الكامل للطالب"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-black text-gray-400 uppercase tracking-wider">الجامعة</label>
-                        <select
-                          value={student.university}
-                          onChange={e => updateStudent(student.id, 'university', e.target.value)}
-                          className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                        >
-                          {UNIVERSITIES.map(u => <option key={u} value={u}>{u}</option>)}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-black text-gray-400 uppercase tracking-wider">الكلية</label>
-                        <select
-                          value={student.college}
-                          onChange={e => updateStudent(student.id, 'college', e.target.value)}
-                          className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                        >
-                          {COLLEGES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </div>
+                      
+                      {state.fieldSettings.showUniversity && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">الجامعة</label>
+                          <select
+                            value={student.university}
+                            onChange={e => updateStudent(student.id, 'university', e.target.value)}
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          >
+                            {UNIVERSITIES.map(u => <option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </div>
+                      )}
+
+                      {state.fieldSettings.showCollege && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">الكلية</label>
+                          <select
+                            value={student.college}
+                            onChange={e => updateStudent(student.id, 'college', e.target.value)}
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          >
+                            {COLLEGES.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                      )}
+
                       <div className="space-y-2">
                         <label className="text-xs font-black text-gray-400 uppercase tracking-wider">القسم</label>
                         <input
@@ -459,17 +547,21 @@ export default function App() {
                           placeholder="القسم الدراسي"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-black text-gray-400 uppercase tracking-wider">نوع الدراسة</label>
-                        <select
-                          value={student.studyType}
-                          onChange={e => updateStudent(student.id, 'studyType', e.target.value as any)}
-                          className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                        >
-                          <option value="صباحي">صباحي</option>
-                          <option value="مسائي">مسائي</option>
-                        </select>
-                      </div>
+
+                      {state.fieldSettings.showStudyType && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">نوع الدراسة</label>
+                          <select
+                            value={student.studyType}
+                            onChange={e => updateStudent(student.id, 'studyType', e.target.value as any)}
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          >
+                            <option value="صباحي">صباحي</option>
+                            <option value="مسائي">مسائي</option>
+                          </select>
+                        </div>
+                      )}
+
                       <div className="space-y-2">
                         <label className="text-xs font-black text-gray-400 uppercase tracking-wider">تاريخ المباشرة</label>
                         <input
@@ -523,7 +615,7 @@ export default function App() {
               <h2 className="text-3xl md:text-4xl font-black text-blue-900 mb-4">تم الارسال بنجاح!</h2>
               <p className="text-gray-500 text-lg mb-10">تم استلام بيانات المطبقين وحفظها في قاعدة البيانات المركزية.</p>
               <button 
-                onClick={() => setState({ step: 'school', schoolData: DEFAULT_SCHOOL_DATA, students: [] })}
+                onClick={() => setState({ ...state, step: 'school', schoolData: DEFAULT_SCHOOL_DATA, students: [] })}
                 className="px-12 py-4 bg-blue-900 text-white rounded-2xl hover:bg-blue-800 transition-all font-bold shadow-lg"
               >
                 العودة للرئيسية
@@ -531,9 +623,70 @@ export default function App() {
             </motion.div>
           )}
 
-          {state.step === 'admin' && isAdmin && (
+          {state.step === 'admin_login' && (
             <motion.div
-              key="admin"
+              key="admin_login"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-md mx-auto bg-white p-8 rounded-3xl shadow-2xl border border-blue-50"
+            >
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Lock size={32} />
+                </div>
+                <h2 className="text-2xl font-black text-blue-900">تسجيل دخول الإدارة</h2>
+                <p className="text-gray-500">يرجى إدخال بيانات الاعتماد للوصول للوحة التحكم</p>
+              </div>
+
+              <form onSubmit={handleAdminLogin} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-600">اسم المستخدم</label>
+                  <input
+                    required
+                    type="text"
+                    value={loginForm.user}
+                    onChange={e => setLoginForm(prev => ({ ...prev, user: e.target.value }))}
+                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="Username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-600">كلمة المرور</label>
+                  <div className="relative">
+                    <input
+                      required
+                      type={showPass ? "text" : "password"}
+                      value={loginForm.pass}
+                      onChange={e => setLoginForm(prev => ({ ...prev, pass: e.target.value }))}
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Password"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPass(!showPass)}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-500"
+                    >
+                      {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+                <button type="submit" className="w-full py-4 bg-blue-900 text-white rounded-2xl font-black hover:bg-blue-800 transition-all shadow-lg">
+                  دخول
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setState(prev => ({ ...prev, step: 'school' }))}
+                  className="w-full text-gray-400 font-bold hover:text-gray-600 mt-4"
+                >
+                  إلغاء
+                </button>
+              </form>
+            </motion.div>
+          )}
+
+          {state.step === 'admin_panel' && isAdmin && (
+            <motion.div
+              key="admin_panel"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="space-y-8"
@@ -543,7 +696,7 @@ export default function App() {
                   <Settings className="text-yellow-500 w-8 h-8" />
                   لوحة تحكم النظام
                 </h2>
-                <button onClick={() => setIsAdmin(false)} className="flex items-center gap-2 text-red-500 font-bold bg-red-50 px-6 py-2 rounded-xl hover:bg-red-100 transition-all">
+                <button onClick={() => { setIsAdmin(false); setState(prev => ({ ...prev, step: 'school' })); }} className="flex items-center gap-2 text-red-500 font-bold bg-red-50 px-6 py-2 rounded-xl hover:bg-red-100 transition-all">
                   <LogOut size={20} />
                   تسجيل الخروج
                 </button>
@@ -566,23 +719,87 @@ export default function App() {
                     className="w-full flex items-center justify-center gap-3 py-4 bg-yellow-400 text-blue-900 rounded-2xl font-black hover:bg-yellow-500 transition-all shadow-md"
                   >
                     <Download size={24} />
-                    تصدير ملف Excel
+                    تصدير ملف Excel تراكمي
                   </button>
                 </div>
               </div>
 
               <div className="bg-white p-8 rounded-3xl shadow-lg">
-                <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-blue-500 pr-3">مشاركة التقارير</h3>
+                <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-blue-500 pr-3 flex items-center gap-2">
+                  <Layout size={24} />
+                  إدارة الحقول والأيقونات
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                  {Object.entries(state.fieldSettings).map(([key, value]) => (
+                    <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                      <span className="font-bold text-gray-700">
+                        {key === 'showSchoolType' && 'حقل نوع المدرسة'}
+                        {key === 'showSector' && 'حقل القطاع'}
+                        {key === 'showPrincipalPhone' && 'حقل هاتف المدير'}
+                        {key === 'showUniversity' && 'حقل الجامعة'}
+                        {key === 'showCollege' && 'حقل الكلية'}
+                        {key === 'showStudyType' && 'حقل نوع الدراسة'}
+                      </span>
+                      <button 
+                        onClick={() => toggleField(key as keyof FieldSettings)}
+                        className={`transition-colors ${value ? 'text-blue-600' : 'text-gray-300'}`}
+                      >
+                        {value ? <ToggleRight size={40} /> : <ToggleLeft size={40} />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-3xl shadow-lg">
+                <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-blue-500 pr-3">الاستمارات المستلمة</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b">
+                        <th className="p-4 font-bold text-gray-600">التاريخ</th>
+                        <th className="p-4 font-bold text-gray-600">المدرسة</th>
+                        <th className="p-4 font-bold text-gray-600">المدير</th>
+                        <th className="p-4 font-bold text-gray-600">العدد</th>
+                        <th className="p-4 font-bold text-gray-600">إجراءات</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allSubmissions.map((sub) => (
+                        <tr key={sub.id} className="border-b hover:bg-gray-50 transition-colors">
+                          <td className="p-4 text-sm">{sub.timestamp}</td>
+                          <td className="p-4 font-bold">{sub.schoolName}</td>
+                          <td className="p-4">{sub.principalName}</td>
+                          <td className="p-4 font-bold text-blue-600">{sub.students.length}</td>
+                          <td className="p-4">
+                            <button onClick={() => deleteSubmission(sub.id)} className="text-red-400 hover:text-red-600">
+                              <Trash2 size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {allSubmissions.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="p-10 text-center text-gray-400 italic">لا توجد استمارات مستلمة بعد</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-3xl shadow-lg">
+                <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-green-500 pr-3">مشاركة التقارير</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <button className="flex items-center justify-center gap-3 p-4 bg-green-50 text-green-700 rounded-2xl hover:bg-green-100 transition-all font-bold">
+                  <button onClick={() => shareData('whatsapp')} className="flex items-center justify-center gap-3 p-4 bg-green-50 text-green-700 rounded-2xl hover:bg-green-100 transition-all font-bold">
                     <MessageCircle size={24} />
                     واتساب
                   </button>
-                  <button className="flex items-center justify-center gap-3 p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all font-bold">
+                  <button onClick={() => shareData('telegram')} className="flex items-center justify-center gap-3 p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all font-bold">
                     <Share2 size={24} />
                     تيليغرام
                   </button>
-                  <button className="flex items-center justify-center gap-3 p-4 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-all font-bold">
+                  <button onClick={() => shareData('email')} className="flex items-center justify-center gap-3 p-4 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-all font-bold">
                     <Mail size={24} />
                     البريد الإلكتروني
                   </button>
@@ -590,21 +807,37 @@ export default function App() {
               </div>
 
               <div className="bg-white p-8 rounded-3xl shadow-lg">
-                <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-yellow-500 pr-3">إعدادات الأمان</h3>
-                <div className="flex flex-col sm:flex-row gap-4 max-w-xl">
-                  <input 
-                    type="password" 
-                    placeholder="كلمة المرور الجديدة"
-                    className="flex-1 p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
-                    onChange={(e) => {
-                      const newPass = e.target.value;
-                      if (newPass) {
-                        setAdminPassword(newPass);
-                        localStorage.setItem('adminPassword', newPass);
-                      }
+                <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-yellow-500 pr-3">إعدادات الحساب</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500">اسم المستخدم الجديد</label>
+                    <input 
+                      type="text" 
+                      defaultValue={adminUsername}
+                      id="new-user"
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500">كلمة المرور الجديدة</label>
+                    <input 
+                      type="password" 
+                      defaultValue={adminPassword}
+                      id="new-pass"
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const u = (document.getElementById('new-user') as HTMLInputElement).value;
+                      const p = (document.getElementById('new-pass') as HTMLInputElement).value;
+                      if (u && p) updateAdminCredentials(u, p);
                     }}
-                  />
-                  <button className="px-8 py-4 bg-blue-900 text-white rounded-2xl font-bold hover:bg-blue-800 transition-all">تحديث</button>
+                    className="md:col-span-2 flex items-center justify-center gap-2 py-4 bg-blue-900 text-white rounded-2xl font-bold hover:bg-blue-800 transition-all shadow-md"
+                  >
+                    <Save size={20} />
+                    حفظ التغييرات
+                  </button>
                 </div>
               </div>
             </motion.div>
@@ -622,7 +855,13 @@ export default function App() {
               </p>
             </div>
             <div className="flex gap-4">
-              <button onClick={handleAdminLogin} className="flex items-center gap-2 bg-blue-50 text-blue-700 px-6 py-2 rounded-xl hover:bg-blue-100 transition-all font-bold">
+              <button 
+                onClick={() => {
+                  if (isAdmin) setState(prev => ({ ...prev, step: 'admin_panel' }));
+                  else setState(prev => ({ ...prev, step: 'admin_login' }));
+                }} 
+                className="flex items-center gap-2 bg-blue-50 text-blue-700 px-6 py-2 rounded-xl hover:bg-blue-100 transition-all font-bold"
+              >
                 <ShieldCheck size={18} />
                 لوحة التحكم
               </button>
@@ -636,4 +875,3 @@ export default function App() {
     </div>
   );
 }
-<ctrl46>,Overwrite:true,TargetFile:<ctrl46>/src/App.tsx<ctrl46>}
