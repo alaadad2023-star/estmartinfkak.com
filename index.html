@@ -1,954 +1,234 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Home, 
-  School, 
-  UserCheck, 
-  UserPlus, 
-  FileText, 
-  Info, 
-  Phone, 
-  Plus, 
-  Send, 
-  CheckCircle, 
-  Download, 
-  Settings, 
-  LogOut, 
-  Trash2,
-  Share2,
-  Mail,
-  MessageCircle,
-  ShieldCheck,
-  Menu,
-  X,
-  AlertCircle,
-  Eye,
-  EyeOff
-} from 'lucide-react';
-import * as XLSX from 'xlsx';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
+import { CheckCircle, Users, UserPlus, Send, AlertCircle, School as SchoolIcon } from 'lucide-react';
+import { School, AppSettings, DynamicField } from '../types';
+import { cn } from '../lib/utils';
+import { db, doc, onSnapshot } from '../firebase';
 
-// --- Types ---
-interface Student {
-  id: string;
-  name: string;
-  university: string;
-  college: string;
-  department: string;
-  studyType: 'صباحي' | 'مسائي';
-  startDate: string;
-  releaseDate: string;
-}
-
-interface SchoolData {
-  schoolName: string;
-  schoolType: string;
-  principalName: string;
-  principalPhone: string;
-  sector: string;
-  studentCount: number;
-}
-
-interface AppState {
-  step: 'school' | 'students' | 'admin' | 'success';
-  schoolData: SchoolData;
-  students: Student[];
-}
-
-interface Submission {
-  id: string;
-  schoolName: string;
-  schoolType: string;
-  principalName: string;
-  principalPhone: string;
-  sector: string;
-  students: Student[];
-  timestamp: string;
-}
-
-// --- Constants ---
-const SECTORS = ['السماوة', 'الخضر', 'الرميثة', 'الوركاء'];
-const SCHOOL_TYPES = ['رياض اطفال', 'ابتدائي', 'متوسطة', 'ثانوي', 'اعدادي', 'معهد الفنون'];
-const UNIVERSITIES = ['جامعة المثنى', 'جامعة ساوة الاهلية', 'جامعة الصادق الاهلية'];
-const COLLEGES = ['التربية الاساسية', 'التربية الانسانية', 'التربية للعلوم الصرفة', 'التربية البدنية', 'التربية جامعة ساوة'];
-
-const DEFAULT_SCHOOL_DATA: SchoolData = {
-  schoolName: '',
-  schoolType: 'ابتدائي',
-  principalName: '',
-  principalPhone: '',
-  sector: 'السماوة',
-  studentCount: 1,
-};
-
-// --- Validation Functions ---
-const validatePhone = (phone: string): boolean => /^\d{11}$/.test(phone);
-
-const validateEmail = (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-const validateSchoolData = (data: SchoolData): { valid: boolean; errors: string[] } => {
-  const errors: string[] = [];
-
-  if (!data.schoolName.trim()) {
-    errors.push('اسم المدرسة مطلوب');
-  }
-
-  if (!data.principalName.trim()) {
-    errors.push('اسم المدير مطلوب');
-  }
-
-  if (!validatePhone(data.principalPhone)) {
-    errors.push('رقم الهاتف يجب أن يكون 11 رقماً');
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors
-  };
-};
-
-const validateStudent = (student: Student): { valid: boolean; errors: string[] } => {
-  const errors: string[] = [];
-
-  if (!student.name.trim()) {
-    errors.push('اسم الطالب مطلوب');
-  }
-
-  if (!student.department.trim()) {
-    errors.push('القسم مطلوب');
-  }
-
-  if (!student.startDate) {
-    errors.push('تاريخ المباشرة مطلوب');
-  }
-
-  if (!student.releaseDate) {
-    errors.push('تاريخ الانفكاك مطلوب');
-  }
-
-  if (student.startDate && student.releaseDate && new Date(student.startDate) > new Date(student.releaseDate)) {
-    errors.push('تاريخ المباشرة يجب أن يكون قبل تاريخ الانفكاك');
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors
-  };
-};
-
-// --- Toast Notification Component ---
-const Toast = ({ message, type = 'info', onClose }: { message: string; type?: 'success' | 'error' | 'info'; onClose: () => void }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 4000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  const bgColor = type === 'success' ? 'bg-green-50 border-green-300' : type === 'error' ? 'bg-red-50 border-red-300' : 'bg-blue-50 border-blue-300';
-  const textColor = type === 'success' ? 'text-green-700' : type === 'error' ? 'text-red-700' : 'text-blue-700';
-  const icon = type === 'success' ? <CheckCircle size={20} /> : type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className={`fixed top-4 left-4 right-4 md:left-auto md:right-4 md:w-96 p-4 ${bgColor} border rounded-xl shadow-lg flex items-center gap-3 z-50`}
-    >
-      <span className={textColor}>{icon}</span>
-      <span className={`font-semibold ${textColor} flex-1`}>{message}</span>
-      <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-        <X size={18} />
-      </button>
-    </motion.div>
-  );
-};
-
-// --- Components ---
-
-const Header = () => (
-  <header className="bg-white border-b-2 border-blue-100 p-4 shadow-sm">
-    <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-      <div className="text-center md:text-right flex-1 order-2 md:order-1">
-        <h1 className="text-xl font-bold text-blue-900">وزارة التربية</h1>
-        <p className="text-blue-700 font-medium">مديرية تربية المثنى</p>
-      </div>
-      
-      <div className="flex-shrink-0 order-1 md:order-2">
-        <img 
-          src="https://picsum.photos/seed/iraq-edu-logo/200/200" 
-          alt="شعار قسم الاعداد والتدريب" 
-          className="w-28 h-28 md:w-32 md:h-32 object-contain rounded-2xl border-4 border-blue-50 shadow-lg"
-          referrerPolicy="no-referrer"
-        />
-      </div>
-
-      <div className="text-center md:text-left flex-1 order-3">
-        <h1 className="text-xl font-bold text-blue-900">قسم الاعداد والتدريب</h1>
-        <p className="text-blue-700 font-medium">شعبة المعاهد</p>
-      </div>
-    </div>
-  </header>
-);
-
-const Navbar = ({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  
-  const tabs = [
-    { id: 'home', label: 'الصفحة الرئيسية', icon: <Home size={18} /> },
-    { id: 'school', label: 'معلومات المدرسة', icon: <School size={18} /> },
-    { id: 'internal', label: 'المطبقون من داخل المحافظة', icon: <UserCheck size={18} /> },
-    { id: 'external', label: 'المطبقون من خارج المحافظة', icon: <UserPlus size={18} /> },
-    { id: 'report', label: 'تقرير الاستلام', icon: <FileText size={18} /> },
-    { id: 'about', label: 'من نحن', icon: <Info size={18} /> },
-    { id: 'contact', label: 'اتصل بنا', icon: <Phone size={18} /> },
-  ];
-
-  return (
-    <nav className="bg-blue-900 text-white sticky top-0 z-50 shadow-lg">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex justify-between items-center h-16 md:hidden">
-          <span className="font-bold">القائمة</span>
-          <button onClick={() => setIsOpen(!isOpen)} className="p-2">
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-
-        <div className={`${isOpen ? 'block' : 'hidden'} md:flex md:flex-row flex-col whitespace-nowrap overflow-x-auto scrollbar-hide`}>
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                onTabChange(tab.id);
-                setIsOpen(false);
-              }}
-              className={`flex items-center gap-2 px-6 py-4 transition-all hover:bg-blue-800 border-b-4 text-sm md:text-base ${
-                activeTab === tab.id ? 'border-yellow-400 bg-blue-800' : 'border-transparent'
-              }`}
-            >
-              {tab.icon}
-              <span className="font-medium">{tab.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </nav>
-  );
-};
-
-// --- Main App Component ---
-export default function App() {
-  const [state, setState] = useState<AppState>({
-    step: 'school',
-    schoolData: DEFAULT_SCHOOL_DATA,
-    students: [],
+export default function Home() {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState<Partial<School>>({
+    name: '',
+    principalName: '',
+    principalPhone: '',
+    sector: 'السماوة',
+    practitionerCount: 1,
+    customFields: {}
   });
+  const [dynamicFields, setDynamicFields] = useState<DynamicField[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('admin123');
-  const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
-  const [showPassword, setShowPassword] = useState(false);
-
-  // Load data from localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('submissions');
-      if (saved) setAllSubmissions(JSON.parse(saved));
-      
-      const savedPass = localStorage.getItem('adminPassword');
-      if (savedPass) setAdminPassword(savedPass);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      setToast({ message: 'خطأ في تحميل البيانات المحفوظة', type: 'error' });
-    }
+    const unsub = onSnapshot(doc(db, 'settings', 'global'), (doc) => {
+      if (doc.exists()) {
+        const settings = doc.data() as AppSettings;
+        setDynamicFields(settings.dynamicFields || []);
+      }
+    });
+    return () => unsub();
   }, []);
 
-  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
-    setToast({ message, type });
-  }, []);
-
-  const handleSchoolSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const validation = validateSchoolData(state.schoolData);
-    
-    if (!validation.valid) {
-      setValidationErrors({ school: validation.errors });
-      showToast(validation.errors[0], 'error');
-      return;
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.name) newErrors.name = 'اسم المدرسة مطلوب';
+    if (!formData.principalName) newErrors.principalName = 'اسم مدير المدرسة مطلوب';
+    if (!formData.principalPhone || formData.principalPhone.length !== 11) {
+      newErrors.principalPhone = 'رقم الهاتف يجب أن يتكون من 11 رقماً';
     }
-
-    setValidationErrors({});
-    const initialStudents: Student[] = Array.from({ length: state.schoolData.studentCount }).map(() => ({
-      id: Math.random().toString(36).substr(2, 9),
-      name: '',
-      university: UNIVERSITIES[0],
-      college: COLLEGES[0],
-      department: '',
-      studyType: 'صباحي',
-      startDate: '',
-      releaseDate: '',
-    }));
-
-    setState(prev => ({ ...prev, step: 'students', students: initialStudents }));
-    showToast('تم تحميل نموذج المطبقين', 'success');
-    window.scrollTo(0, 0);
-  };
-
-  const addStudent = () => {
-    setState(prev => ({
-      ...prev,
-      students: [
-        ...prev.students,
-        {
-          id: Math.random().toString(36).substr(2, 9),
-          name: '',
-          university: UNIVERSITIES[0],
-          college: COLLEGES[0],
-          department: '',
-          studyType: 'صباحي',
-          startDate: '',
-          releaseDate: '',
-        }
-      ]
-    }));
-    showToast('تم إضافة مطبق جديد', 'success');
-  };
-
-  const removeStudent = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      students: prev.students.filter(s => s.id !== id)
-    }));
-    showToast('تم حذف المطبق', 'info');
-  };
-
-  const updateStudent = (id: string, field: keyof Student, value: string) => {
-    setState(prev => ({
-      ...prev,
-      students: prev.students.map(s => s.id === id ? { ...s, [field]: value } : s)
-    }));
-  };
-
-  const handleFinalSubmit = () => {
-    // Validate all students
-    const studentErrors: Record<string, string[]> = {};
-    let hasErrors = false;
-
-    state.students.forEach((student, index) => {
-      const validation = validateStudent(student);
-      if (!validation.valid) {
-        studentErrors[student.id] = validation.errors;
-        hasErrors = true;
+    
+    // Validate dynamic fields
+    dynamicFields.forEach(field => {
+      if (field.required && !formData.customFields?.[field.id]) {
+        newErrors[field.id] = `${field.label} مطلوب`;
       }
     });
 
-    if (hasErrors) {
-      setValidationErrors(studentErrors);
-      showToast('يرجى التحقق من بيانات المطبقين', 'error');
-      return;
-    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-    if (state.students.length === 0) {
-      showToast('يرجى إضافة مطبق واحد على الأقل', 'error');
-      return;
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'practitionerCount' ? parseInt(value) : value
+    }));
+  };
 
-    setValidationErrors({});
+  const handleCustomFieldChange = (id: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      customFields: {
+        ...prev.customFields,
+        [id]: value
+      }
+    }));
+  };
 
-    const newSubmission: Submission = {
-      id: Math.random().toString(36).substr(2, 9),
-      schoolName: state.schoolData.schoolName,
-      schoolType: state.schoolData.schoolType,
-      principalName: state.schoolData.principalName,
-      principalPhone: state.schoolData.principalPhone,
-      sector: state.schoolData.sector,
-      students: state.students,
-      timestamp: new Date().toISOString()
-    };
-
-    try {
-      const updated = [...allSubmissions, newSubmission];
-      setAllSubmissions(updated);
-      localStorage.setItem('submissions', JSON.stringify(updated));
-      setState(prev => ({ ...prev, step: 'success' }));
-      showToast('تم إرسال البيانات بنجاح', 'success');
-      window.scrollTo(0, 0);
-    } catch (error) {
-      console.error('Error saving submission:', error);
-      showToast('خطأ في حفظ البيانات', 'error');
+  const handleVerify = () => {
+    if (validate()) {
+      alert('تم التأكد من المعلومات بنجاح!');
     }
   };
 
-  const exportToExcel = () => {
-    if (allSubmissions.length === 0) {
-      showToast('لا توجد بيانات لتصديرها', 'info');
-      return;
-    }
-
-    try {
-      const flattened = allSubmissions.flatMap(sub => 
-        sub.students.map((s: Student) => ({
-          'اسم المدرسة': sub.schoolName,
-          'نوع المدرسة': sub.schoolType,
-          'مدير المدرسة': sub.principalName,
-          'هاتف المدير': sub.principalPhone,
-          'القطاع': sub.sector,
-          'اسم الطالب': s.name,
-          'الجامعة': s.university,
-          'الكلية': s.college,
-          'القسم': s.department,
-          'نوع الدراسة': s.studyType,
-          'تاريخ المباشرة': s.startDate,
-          'تاريخ الانفكاك': s.releaseDate,
-          'وقت الإرسال': new Date(sub.timestamp).toLocaleString('ar-IQ')
-        }))
-      );
-
-      const ws = XLSX.utils.json_to_sheet(flattened);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "المطبقون");
-      
-      ws['!cols'] = [
-        { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 15 },
-        { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 25 },
-        { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 20 }
-      ];
-
-      XLSX.writeFile(wb, `تقرير_المطبقين_${new Date().toISOString().split('T')[0]}.xlsx`);
-      showToast('تم تصدير الملف بنجاح', 'success');
-    } catch (error) {
-      console.error('Export error:', error);
-      showToast('خطأ في تصدير الملف', 'error');
-    }
-  };
-
-  const handleAdminLogin = () => {
-    const user = prompt('اسم المستخدم:');
-    if (!user) return;
-
-    const pass = prompt('كلمة المرور:');
-    if (!pass) return;
-
-    if (user === 'admin' && pass === adminPassword) {
-      setIsAdmin(true);
-      setState(prev => ({ ...prev, step: 'admin' }));
-      showToast('تم تسجيل الدخول بنجاح', 'success');
-    } else {
-      showToast('خطأ في اسم المستخدم أو كلمة المرور', 'error');
-    }
-  };
-
-  const handleLogout = () => {
-    setIsAdmin(false);
-    setState(prev => ({ ...prev, step: 'school' }));
-    showToast('تم تسجيل الخروج', 'info');
-  };
-
-  const updateAdminPassword = (newPassword: string) => {
-    if (newPassword.length < 6) {
-      showToast('كلمة المرور يجب أن تكون 6 أحرف على الأقل', 'error');
-      return;
-    }
-    setAdminPassword(newPassword);
-    localStorage.setItem('adminPassword', newPassword);
-    showToast('تم تحديث كلمة المرور بنجاح', 'success');
-  };
-
-  const deleteSubmission = (id: string) => {
-    if (confirm('هل أنت متأكد من حذف هذا الإرسال؟')) {
-      const updated = allSubmissions.filter(s => s.id !== id);
-      setAllSubmissions(updated);
-      localStorage.setItem('submissions', JSON.stringify(updated));
-      showToast('تم حذف الإرسال', 'success');
+  const handleNext = (type: 'in' | 'out') => {
+    if (validate()) {
+      // Save to session storage to pass to next page
+      sessionStorage.setItem('schoolInfo', JSON.stringify(formData));
+      navigate(type === 'in' ? '/practitioners-in' : '/practitioners-out');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-right flex flex-col" dir="rtl">
-      <Header />
-      <Navbar 
-        activeTab={state.step} 
-        onTabChange={(tab) => {
-          if (tab === 'home' || tab === 'school') {
-            setState({ step: 'school', schoolData: DEFAULT_SCHOOL_DATA, students: [] });
-            setValidationErrors({});
-          }
-        }} 
-      />
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-xl border border-blue-50 my-8"
+      dir="rtl"
+    >
+      <h2 className="text-2xl font-bold text-blue-900 mb-8 border-b pb-4 flex items-center gap-2">
+        <SchoolIcon className="w-8 h-8" />
+        معلومات المدرسة الأساسية
+      </h2>
 
-      <AnimatePresence>
-        {toast && (
-          <Toast 
-            message={toast.message} 
-            type={toast.type}
-            onClose={() => setToast(null)}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* School Name */}
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">اسم المدرسة</label>
+          <input 
+            type="text" 
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            className={cn(
+              "w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all",
+              errors.name ? "border-red-500 bg-red-50" : "border-gray-300"
+            )}
+            placeholder="أدخل اسم المدرسة كاملاً"
           />
-        )}
-      </AnimatePresence>
-
-      <main className="flex-grow max-w-5xl mx-auto p-4 md:p-8 w-full">
-        <AnimatePresence mode="wait">
-          {state.step === 'school' && (
-            <motion.div
-              key="school"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white p-6 md:p-10 rounded-3xl shadow-2xl border border-blue-50"
-            >
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-2 h-8 bg-yellow-400 rounded-full"></div>
-                <h2 className="text-2xl md:text-3xl font-bold text-blue-900">معلومات المدرسة</h2>
-              </div>
-
-              {validationErrors.school && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mb-6 p-4 bg-red-50 border border-red-300 rounded-xl text-red-700"
-                >
-                  {validationErrors.school.map((error, idx) => (
-                    <div key={idx} className="flex items-center gap-2 font-semibold">
-                      <AlertCircle size={18} />
-                      {error}
-                    </div>
-                  ))}
-                </motion.div>
-              )}
-
-              <form onSubmit={handleSchoolSubmit} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600 mr-1">اسم المدرسة *</label>
-                    <input
-                      required
-                      type="text"
-                      value={state.schoolData.schoolName}
-                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, schoolName: e.target.value } }))}
-                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
-                      placeholder="أدخل اسم المدرسة الكامل"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600 mr-1">نوع المدرسة *</label>
-                    <select
-                      value={state.schoolData.schoolType}
-                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, schoolType: e.target.value } }))}
-                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
-                    >
-                      {SCHOOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600 mr-1">اسم مدير المدرسة *</label>
-                    <input
-                      required
-                      type="text"
-                      value={state.schoolData.principalName}
-                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, principalName: e.target.value } }))}
-                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
-                      placeholder="الاسم الثلاثي للمدير"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600 mr-1">رقم هاتف المدير (11 رقم) *</label>
-                    <input
-                      required
-                      type="tel"
-                      maxLength={11}
-                      pattern="\d{11}"
-                      value={state.schoolData.principalPhone}
-                      onChange={e => {
-                        const value = e.target.value.replace(/\D/g, '');
-                        setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, principalPhone: value } }));
-                      }}
-                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
-                      placeholder="07XXXXXXXXX"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600 mr-1">القطاع *</label>
-                    <select
-                      value={state.schoolData.sector}
-                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, sector: e.target.value } }))}
-                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
-                    >
-                      {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-600 mr-1">عدد المطبقين *</label>
-                    <select
-                      value={state.schoolData.studentCount}
-                      onChange={e => setState(prev => ({ ...prev, schoolData: { ...prev.schoolData, studentCount: parseInt(e.target.value) } }))}
-                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-lg"
-                    >
-                      {Array.from({ length: 50 }).map((_, i) => (
-                        <option key={i + 1} value={i + 1}>{i + 1}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex flex-col md:flex-row flex-wrap gap-4 pt-8 justify-center">
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      const validation = validateSchoolData(state.schoolData);
-                      if (validation.valid) {
-                        showToast('جميع البيانات صحيحة', 'success');
-                      } else {
-                        showToast(validation.errors[0], 'error');
-                      }
-                    }} 
-                    className="flex items-center justify-center gap-2 px-6 py-4 bg-gray-100 text-gray-700 rounded-2xl hover:bg-gray-200 transition-all font-bold w-full md:w-auto"
-                  >
-                    <CheckCircle size={22} />
-                    تأكد من المعلومات
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="flex items-center justify-center gap-2 px-10 py-4 bg-yellow-400 text-blue-900 rounded-2xl hover:bg-yellow-500 hover:scale-105 transition-all font-black shadow-xl w-full md:w-auto"
-                  >
-                    <Send size={22} />
-                    الارسال
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          )}
-
-          {state.step === 'students' && (
-            <motion.div
-              key="students"
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -100 }}
-              className="space-y-8"
-            >
-              <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="text-center md:text-right">
-                  <h2 className="text-2xl font-bold">بيانات المطبقين</h2>
-                  <p className="text-blue-200 mt-1">المدرسة: {state.schoolData.schoolName} ({state.schoolData.schoolType})</p>
-                </div>
-                <button 
-                  onClick={() => {
-                    setState(prev => ({ ...prev, step: 'school' }));
-                    setValidationErrors({});
-                  }}
-                  className="bg-white/10 backdrop-blur-md px-6 py-2 rounded-xl hover:bg-white/20 transition-all border border-white/20"
-                >
-                  تعديل معلومات المدرسة
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {state.students.map((student, index) => {
-                  const studentError = validationErrors[student.id];
-                  return (
-                    <motion.div 
-                      key={student.id} 
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`bg-white p-6 md:p-8 rounded-3xl shadow-lg border ${studentError ? 'border-red-300' : 'border-gray-100'} relative group`}
-                    >
-                      <div className={`absolute top-0 right-0 w-2 h-full ${studentError ? 'bg-red-600' : 'bg-blue-600'} rounded-r-3xl`}></div>
-                      
-                      {studentError && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="mb-4 p-3 bg-red-50 border border-red-300 rounded-lg text-red-700 text-sm"
-                        >
-                          {studentError.map((error, idx) => (
-                            <div key={idx} className="flex items-center gap-2 font-semibold">
-                              <AlertCircle size={16} />
-                              {error}
-                            </div>
-                          ))}
-                        </motion.div>
-                      )}
-
-                      <div className="flex justify-between items-center mb-6">
-                        <span className="bg-blue-100 text-blue-800 px-4 py-1 rounded-full text-sm font-bold">مطبق رقم {index + 1}</span>
-                        {state.students.length > 1 && (
-                          <button 
-                            onClick={() => removeStudent(student.id)} 
-                            className="text-red-400 hover:text-red-600 p-2 transition-colors hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 size={22} />
-                          </button>
-                        )}
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">اسم الطالب *</label>
-                          <input
-                            type="text"
-                            value={student.name}
-                            onChange={e => updateStudent(student.id, 'name', e.target.value)}
-                            className={`w-full p-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all ${studentError?.some(e => e.includes('اسم')) ? 'border-red-300' : 'border-gray-200'}`}
-                            placeholder="الاسم الكامل للطالب"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">الجامعة *</label>
-                          <select
-                            value={student.university}
-                            onChange={e => updateStudent(student.id, 'university', e.target.value)}
-                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                          >
-                            {UNIVERSITIES.map(u => <option key={u} value={u}>{u}</option>)}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">الكلية *</label>
-                          <select
-                            value={student.college}
-                            onChange={e => updateStudent(student.id, 'college', e.target.value)}
-                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                          >
-                            {COLLEGES.map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">القسم *</label>
-                          <input
-                            type="text"
-                            value={student.department}
-                            onChange={e => updateStudent(student.id, 'department', e.target.value)}
-                            className={`w-full p-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all ${studentError?.some(e => e.includes('القسم')) ? 'border-red-300' : 'border-gray-200'}`}
-                            placeholder="القسم الدراسي"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">نوع الدراسة *</label>
-                          <select
-                            value={student.studyType}
-                            onChange={e => updateStudent(student.id, 'studyType', e.target.value as any)}
-                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                          >
-                            <option value="صباحي">صباحي</option>
-                            <option value="مسائي">مسائي</option>
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">تاريخ المباشرة *</label>
-                          <input
-                            type="date"
-                            value={student.startDate}
-                            onChange={e => updateStudent(student.id, 'startDate', e.target.value)}
-                            className={`w-full p-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all ${studentError?.some(e => e.includes('المباشرة')) ? 'border-red-300' : 'border-gray-200'}`}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider">تاريخ الانفكاك *</label>
-                          <input
-                            type="date"
-                            value={student.releaseDate}
-                            onChange={e => updateStudent(student.id, 'releaseDate', e.target.value)}
-                            className={`w-full p-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all ${studentError?.some(e => e.includes('الانفكاك')) ? 'border-red-300' : 'border-gray-200'}`}
-                          />
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-
-              <div className="flex flex-col md:flex-row flex-wrap gap-4 justify-center pt-10">
-                <button 
-                  onClick={addStudent} 
-                  className="flex items-center justify-center gap-2 px-8 py-4 bg-green-500 text-white rounded-2xl hover:bg-green-600 transition-all font-bold shadow-lg w-full md:w-auto"
-                >
-                  <Plus size={22} />
-                  اضافة مطبق
-                </button>
-                <button 
-                  onClick={handleFinalSubmit} 
-                  className="flex items-center justify-center gap-2 px-12 py-4 bg-yellow-400 text-blue-900 rounded-2xl hover:bg-yellow-500 hover:scale-105 transition-all font-black shadow-2xl w-full md:w-auto"
-                >
-                  <Send size={22} />
-                  ارسال المعلومات النهائية
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {state.step === 'success' && (
-            <motion.div
-              key="success"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="text-center py-20 bg-white rounded-3xl shadow-xl border border-green-50"
-            >
-              <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle size={64} />
-              </div>
-              <h2 className="text-3xl md:text-4xl font-black text-blue-900 mb-4">تم الارسال بنجاح!</h2>
-              <p className="text-gray-500 text-lg mb-10">تم استلام بيانات المطبقين وحفظها في قاعدة البيانات المركزية.</p>
-              <button 
-                onClick={() => {
-                  setState({ step: 'school', schoolData: DEFAULT_SCHOOL_DATA, students: [] });
-                  setValidationErrors({});
-                }}
-                className="px-12 py-4 bg-blue-900 text-white rounded-2xl hover:bg-blue-800 transition-all font-bold shadow-lg"
-              >
-                العودة للرئيسية
-              </button>
-            </motion.div>
-          )}
-
-          {state.step === 'admin' && isAdmin && (
-            <motion.div
-              key="admin"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="space-y-8"
-            >
-              <div className="flex flex-col md:flex-row justify-between items-center bg-white p-8 rounded-3xl shadow-xl gap-4">
-                <h2 className="text-2xl font-black text-blue-900 flex items-center gap-3">
-                  <Settings className="text-yellow-500 w-8 h-8" />
-                  لوحة تحكم النظام
-                </h2>
-                <button 
-                  onClick={handleLogout} 
-                  className="flex items-center gap-2 text-red-500 font-bold bg-red-50 px-6 py-2 rounded-xl hover:bg-red-100 transition-all"
-                >
-                  <LogOut size={20} />
-                  تسجيل الخروج
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-blue-500">
-                  <h3 className="font-bold text-gray-400 mb-2">إجمالي المدارس</h3>
-                  <p className="text-5xl font-black text-blue-900">{allSubmissions.length}</p>
-                </div>
-                <div className="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-green-500">
-                  <h3 className="font-bold text-gray-400 mb-2">إجمالي المطبقين</h3>
-                  <p className="text-5xl font-black text-green-600">
-                    {allSubmissions.reduce((acc, curr) => acc + curr.students.length, 0)}
-                  </p>
-                </div>
-                <div className="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-yellow-500 flex flex-col justify-center">
-                  <button 
-                    onClick={exportToExcel}
-                    className="w-full flex items-center justify-center gap-3 py-4 bg-yellow-400 text-blue-900 rounded-2xl font-black hover:bg-yellow-500 transition-all shadow-md"
-                  >
-                    <Download size={24} />
-                    تصدير ملف Excel
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-white p-8 rounded-3xl shadow-lg">
-                <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-blue-500 pr-3">إعدادات الأمان</h3>
-                <div className="flex flex-col gap-4 max-w-2xl">
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="flex-1 relative">
-                      <input 
-                        type={showPassword ? "text" : "password"} 
-                        placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)"
-                        id="newPassword"
-                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all pr-12"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                      </button>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        const newPass = (document.getElementById('newPassword') as HTMLInputElement).value;
-                        if (newPass) {
-                          updateAdminPassword(newPass);
-                          (document.getElementById('newPassword') as HTMLInputElement).value = '';
-                          setShowPassword(false);
-                        }
-                      }}
-                      className="px-8 py-4 bg-blue-900 text-white rounded-2xl font-bold hover:bg-blue-800 transition-all whitespace-nowrap"
-                    >
-                      تحديث
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {allSubmissions.length > 0 && (
-                <div className="bg-white p-8 rounded-3xl shadow-lg overflow-x-auto">
-                  <h3 className="text-xl font-black mb-6 text-blue-900 border-r-4 border-yellow-500 pr-3">سجل الإرسالات</h3>
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-100 border-b-2 border-gray-300">
-                      <tr>
-                        <th className="p-3 text-right font-bold">المدرسة</th>
-                        <th className="p-3 text-right font-bold">المدير</th>
-                        <th className="p-3 text-right font-bold">عدد المطبقين</th>
-                        <th className="p-3 text-right font-bold">التاريخ</th>
-                        <th className="p-3 text-right font-bold">الإجراءات</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allSubmissions.map((submission) => (
-                        <tr key={submission.id} className="border-b hover:bg-gray-50 transition-colors">
-                          <td className="p-3">{submission.schoolName}</td>
-                          <td className="p-3">{submission.principalName}</td>
-                          <td className="p-3 font-bold text-blue-600">{submission.students.length}</td>
-                          <td className="p-3 text-gray-500">{new Date(submission.timestamp).toLocaleString('ar-IQ')}</td>
-                          <td className="p-3">
-                            <button 
-                              onClick={() => deleteSubmission(submission.id)}
-                              className="text-red-500 hover:text-red-700 font-bold hover:bg-red-50 px-3 py-1 rounded transition-all"
-                            >
-                              حذف
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
-
-      <footer className="mt-auto bg-white border-t p-8 text-center">
-        <div className="max-w-7xl mx-auto space-y-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="text-center md:text-right">
-              <p className="text-gray-600 font-bold">مديرية تربية المثنى - قسم الاعداد والتدريب</p>
-              <p className="text-blue-600 font-black text-lg mt-1">
-                ( تصميم م.م صفاء هادي عبد العالي مدير قسم الاعداد والتدريب )
-              </p>
-            </div>
-            <div className="flex gap-4">
-              <button 
-                onClick={handleAdminLogin} 
-                className="flex items-center gap-2 bg-blue-50 text-blue-700 px-6 py-2 rounded-xl hover:bg-blue-100 transition-all font-bold"
-              >
-                <ShieldCheck size={18} />
-                لوحة التحكم
-              </button>
-            </div>
-          </div>
-          <div className="pt-4 border-t border-gray-100 text-gray-400 text-sm">
-            جميع الحقوق محفوظة © 2026 - نظام استمارة الانفكاك الإلكتروني
-          </div>
+          {errors.name && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {errors.name}</p>}
         </div>
-      </footer>
-    </div>
+
+        {/* Principal Name */}
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">اسم مدير المدرسة</label>
+          <input 
+            type="text" 
+            name="principalName"
+            value={formData.principalName}
+            onChange={handleChange}
+            className={cn(
+              "w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all",
+              errors.principalName ? "border-red-500 bg-red-50" : "border-gray-300"
+            )}
+            placeholder="اسم المدير الثلاثي"
+          />
+          {errors.principalName && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {errors.principalName}</p>}
+        </div>
+
+        {/* Principal Phone */}
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">رقم هاتف مدير المدرسة</label>
+          <input 
+            type="tel" 
+            name="principalPhone"
+            value={formData.principalPhone}
+            onChange={handleChange}
+            maxLength={11}
+            className={cn(
+              "w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all",
+              errors.principalPhone ? "border-red-500 bg-red-50" : "border-gray-300"
+            )}
+            placeholder="مثال: 07812345678"
+          />
+          {errors.principalPhone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {errors.principalPhone}</p>}
+        </div>
+
+        {/* Sector */}
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">القطاع</label>
+          <select 
+            name="sector"
+            value={formData.sector}
+            onChange={handleChange}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
+          >
+            <option value="السماوة">السماوة</option>
+            <option value="الخضر">الخضر</option>
+            <option value="الرميثة">الرميثة</option>
+            <option value="الوركاء">الوركاء</option>
+          </select>
+        </div>
+
+        {/* Practitioner Count */}
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">عدد المطبقين</label>
+          <select 
+            name="practitionerCount"
+            value={formData.practitionerCount}
+            onChange={handleChange}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
+          >
+            {Array.from({ length: 24 }, (_, i) => i + 1).map(num => (
+              <option key={num} value={num}>{num}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Dynamic Fields */}
+        {dynamicFields.map(field => (
+          <div key={field.id} className="space-y-2">
+            <label className="block text-sm font-bold text-gray-700">{field.label}</label>
+            <input 
+              type={field.type} 
+              value={formData.customFields?.[field.id] || ''}
+              onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
+              className={cn(
+                "w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all",
+                errors[field.id] ? "border-red-500 bg-red-50" : "border-gray-300"
+              )}
+              placeholder={field.placeholder}
+            />
+            {errors[field.id] && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {errors[field.id]}</p>}
+          </div>
+        ))}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-12">
+        <button 
+          onClick={handleVerify}
+          className="flex items-center justify-center gap-2 bg-green-600 text-white p-4 rounded-xl hover:bg-green-700 transition-all shadow-lg hover:shadow-green-200"
+        >
+          <CheckCircle className="w-5 h-5" />
+          تاكد من المعلومات
+        </button>
+        
+        <button 
+          onClick={() => handleNext('in')}
+          className="flex items-center justify-center gap-2 bg-blue-600 text-white p-4 rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-200"
+        >
+          <Users className="w-5 h-5" />
+          المطبقون من داخل المحافظة
+        </button>
+
+        <button 
+          onClick={() => handleNext('out')}
+          className="flex items-center justify-center gap-2 bg-purple-600 text-white p-4 rounded-xl hover:bg-purple-700 transition-all shadow-lg hover:shadow-purple-200"
+        >
+          <UserPlus className="w-5 h-5" />
+          المطبقون من خارج المحافظة
+        </button>
+
+        <button 
+          onClick={() => handleNext('in')} // Default to inside if just clicking send
+          className="flex items-center justify-center gap-2 bg-orange-600 text-white p-4 rounded-xl hover:bg-orange-700 transition-all shadow-lg hover:shadow-orange-200"
+        >
+          <Send className="w-5 h-5" />
+          الارسال
+        </button>
+      </div>
+    </motion.div>
   );
 }
