@@ -1,0 +1,234 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
+import { CheckCircle, Users, UserPlus, Send, AlertCircle, School as SchoolIcon } from 'lucide-react';
+import { School, AppSettings, DynamicField } from '../types';
+import { cn } from '../lib/utils';
+import { db, doc, onSnapshot } from '../firebase';
+
+export default function Home() {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState<Partial<School>>({
+    name: '',
+    principalName: '',
+    principalPhone: '',
+    sector: 'السماوة',
+    practitionerCount: 1,
+    customFields: {}
+  });
+  const [dynamicFields, setDynamicFields] = useState<DynamicField[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'global'), (doc) => {
+      if (doc.exists()) {
+        const settings = doc.data() as AppSettings;
+        setDynamicFields(settings.dynamicFields || []);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.name) newErrors.name = 'اسم المدرسة مطلوب';
+    if (!formData.principalName) newErrors.principalName = 'اسم مدير المدرسة مطلوب';
+    if (!formData.principalPhone || formData.principalPhone.length !== 11) {
+      newErrors.principalPhone = 'رقم الهاتف يجب أن يتكون من 11 رقماً';
+    }
+
+    // Validate dynamic fields
+    dynamicFields.forEach(field => {
+      if (field.required && !formData.customFields?.[field.id]) {
+        newErrors[field.id] = `${field.label} مطلوب`;
+      }
+    });
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'practitionerCount' ? parseInt(value) : value
+    }));
+  };
+
+  const handleCustomFieldChange = (id: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      customFields: {
+        ...prev.customFields,
+        [id]: value
+      }
+    }));
+  };
+
+  const handleVerify = () => {
+    if (validate()) {
+      alert('تم التأكد من المعلومات بنجاح!');
+    }
+  };
+
+  const handleNext = (type: 'in' | 'out') => {
+    if (validate()) {
+      // Save to session storage to pass to next page
+      sessionStorage.setItem('schoolInfo', JSON.stringify(formData));
+      navigate(type === 'in' ? '/practitioners-in' : '/practitioners-out');
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-xl border border-blue-50 my-8"
+      dir="rtl"
+    >
+      <h2 className="text-2xl font-bold text-blue-900 mb-8 border-b pb-4 flex items-center gap-2">
+        <SchoolIcon className="w-8 h-8" />
+        معلومات المدرسة الأساسية
+      </h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* School Name */}
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">اسم المدرسة</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            className={cn(
+              "w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all",
+              errors.name ? "border-red-500 bg-red-50" : "border-gray-300"
+            )}
+            placeholder="أدخل اسم المدرسة كاملاً"
+          />
+          {errors.name && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {errors.name}</p>}
+        </div>
+
+        {/* Principal Name */}
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">اسم مدير المدرسة</label>
+          <input
+            type="text"
+            name="principalName"
+            value={formData.principalName}
+            onChange={handleChange}
+            className={cn(
+              "w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all",
+              errors.principalName ? "border-red-500 bg-red-50" : "border-gray-300"
+            )}
+            placeholder="اسم المدير الثلاثي"
+          />
+          {errors.principalName && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {errors.principalName}</p>}
+        </div>
+
+        {/* Principal Phone */}
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">رقم هاتف مدير المدرسة</label>
+          <input
+            type="tel"
+            name="principalPhone"
+            value={formData.principalPhone}
+            onChange={handleChange}
+            maxLength={11}
+            className={cn(
+              "w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all",
+              errors.principalPhone ? "border-red-500 bg-red-50" : "border-gray-300"
+            )}
+            placeholder="مثال: 07812345678"
+          />
+          {errors.principalPhone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {errors.principalPhone}</p>}
+        </div>
+
+        {/* Sector */}
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">القطاع</label>
+          <select
+            name="sector"
+            value={formData.sector}
+            onChange={handleChange}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
+          >
+            <option value="السماوة">السماوة</option>
+            <option value="الخضر">الخضر</option>
+            <option value="الرميثة">الرميثة</option>
+            <option value="الوركاء">الوركاء</option>
+          </select>
+        </div>
+
+        {/* Practitioner Count */}
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">عدد المطبقين</label>
+          <select
+            name="practitionerCount"
+            value={formData.practitionerCount}
+            onChange={handleChange}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
+          >
+            {Array.from({ length: 24 }, (_, i) => i + 1).map(num => (
+              <option key={num} value={num}>{num}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Dynamic Fields */}
+        {dynamicFields.map(field => (
+          <div key={field.id} className="space-y-2">
+            <label className="block text-sm font-bold text-gray-700">{field.label}</label>
+            <input
+              type={field.type}
+              value={formData.customFields?.[field.id] || ''}
+              onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
+              className={cn(
+                "w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all",
+                errors[field.id] ? "border-red-500 bg-red-50" : "border-gray-300"
+              )}
+              placeholder={field.placeholder}
+            />
+            {errors[field.id] && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {errors[field.id]}</p>}
+          </div>
+        ))}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-12">
+        <button
+          onClick={handleVerify}
+          className="flex items-center justify-center gap-2 bg-green-600 text-white p-4 rounded-xl hover:bg-green-700 transition-all shadow-lg hover:shadow-green-200"
+        >
+          <CheckCircle className="w-5 h-5" />
+          تاكد من المعلومات
+        </button>
+
+        <button
+          onClick={() => handleNext('in')}
+          className="flex items-center justify-center gap-2 bg-blue-600 text-white p-4 rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-200"
+        >
+          <Users className="w-5 h-5" />
+          المطبقون من داخل المحافظة
+        </button>
+
+        <button
+          onClick={() => handleNext('out')}
+          className="flex items-center justify-center gap-2 bg-purple-600 text-white p-4 rounded-xl hover:bg-purple-700 transition-all shadow-lg hover:shadow-purple-200"
+        >
+          <UserPlus className="w-5 h-5" />
+          المطبقون من خارج المحافظة
+        </button>
+
+        <button
+          onClick={() => handleNext('in')} // Default to inside if just clicking send
+          className="flex items-center justify-center gap-2 bg-orange-600 text-white p-4 rounded-xl hover:bg-orange-700 transition-all shadow-lg hover:shadow-orange-200"
+        >
+          <Send className="w-5 h-5" />
+          الارسال
+        </button>
+      </div>
+    </motion.div>
+  );
+}
