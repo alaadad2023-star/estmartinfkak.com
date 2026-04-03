@@ -36,7 +36,7 @@ export default function Home() {
     if (!formData.principalPhone || formData.principalPhone.length !== 11) {
       newErrors.principalPhone = 'رقم الهاتف يجب أن يتكون من 11 رقماً';
     }
-
+    
     // Validate dynamic fields
     dynamicFields.forEach(field => {
       if (field.required && !formData.customFields?.[field.id]) {
@@ -81,7 +81,7 @@ export default function Home() {
   };
 
   return (
-    <motion.div
+    <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-xl border border-blue-50 my-8"
@@ -96,8 +96,8 @@ export default function Home() {
         {/* School Name */}
         <div className="space-y-2">
           <label className="block text-sm font-bold text-gray-700">اسم المدرسة</label>
-          <input
-            type="text"
+          <input 
+            type="text" 
             name="name"
             value={formData.name}
             onChange={handleChange}
@@ -113,8 +113,8 @@ export default function Home() {
         {/* Principal Name */}
         <div className="space-y-2">
           <label className="block text-sm font-bold text-gray-700">اسم مدير المدرسة</label>
-          <input
-            type="text"
+          <input 
+            type="text" 
             name="principalName"
             value={formData.principalName}
             onChange={handleChange}
@@ -130,8 +130,8 @@ export default function Home() {
         {/* Principal Phone */}
         <div className="space-y-2">
           <label className="block text-sm font-bold text-gray-700">رقم هاتف مدير المدرسة</label>
-          <input
-            type="tel"
+          <input 
+            type="tel" 
             name="principalPhone"
             value={formData.principalPhone}
             onChange={handleChange}
@@ -148,7 +148,7 @@ export default function Home() {
         {/* Sector */}
         <div className="space-y-2">
           <label className="block text-sm font-bold text-gray-700">القطاع</label>
-          <select
+          <select 
             name="sector"
             value={formData.sector}
             onChange={handleChange}
@@ -164,7 +164,7 @@ export default function Home() {
         {/* Practitioner Count */}
         <div className="space-y-2">
           <label className="block text-sm font-bold text-gray-700">عدد المطبقين</label>
-          <select
+          <select 
             name="practitionerCount"
             value={formData.practitionerCount}
             onChange={handleChange}
@@ -180,8 +180,8 @@ export default function Home() {
         {dynamicFields.map(field => (
           <div key={field.id} className="space-y-2">
             <label className="block text-sm font-bold text-gray-700">{field.label}</label>
-            <input
-              type={field.type}
+            <input 
+              type={field.type} 
               value={formData.customFields?.[field.id] || ''}
               onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
               className={cn(
@@ -197,15 +197,15 @@ export default function Home() {
 
       {/* Action Buttons */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-12">
-        <button
+        <button 
           onClick={handleVerify}
           className="flex items-center justify-center gap-2 bg-green-600 text-white p-4 rounded-xl hover:bg-green-700 transition-all shadow-lg hover:shadow-green-200"
         >
           <CheckCircle className="w-5 h-5" />
           تاكد من المعلومات
         </button>
-
-        <button
+        
+        <button 
           onClick={() => handleNext('in')}
           className="flex items-center justify-center gap-2 bg-blue-600 text-white p-4 rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-200"
         >
@@ -213,7 +213,7 @@ export default function Home() {
           المطبقون من داخل المحافظة
         </button>
 
-        <button
+        <button 
           onClick={() => handleNext('out')}
           className="flex items-center justify-center gap-2 bg-purple-600 text-white p-4 rounded-xl hover:bg-purple-700 transition-all shadow-lg hover:shadow-purple-200"
         >
@@ -221,7 +221,7 @@ export default function Home() {
           المطبقون من خارج المحافظة
         </button>
 
-        <button
+        <button 
           onClick={() => handleNext('in')} // Default to inside if just clicking send
           className="flex items-center justify-center gap-2 bg-orange-600 text-white p-4 rounded-xl hover:bg-orange-700 transition-all shadow-lg hover:shadow-orange-200"
         >
